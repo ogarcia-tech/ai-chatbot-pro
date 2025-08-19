@@ -9,13 +9,26 @@ class AICP_Pro_Ajax_Handler {
     }
 
     public static function handle_start_sync() {
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'aicp_save_meta_box_data')) {
-            wp_send_json_error(['message' => 'Fallo de seguridad.']);
+        // 1. Verificar seguridad y permisos
+        check_ajax_referer('aicp_save_meta_box_data', 'nonce');
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(['message' => 'No tienes permisos suficientes.']);
         }
         
-        // Cargar el "cerebro" y pasarle el control
-        require_once __DIR__ . '/class-pinecone-manager.php';
-        AICP_Pinecone_Manager::handle_sync_request();
+        // 2. Aumentar el tiempo de ejecución para evitar timeouts en procesos largos
+        @set_time_limit(300); // 300 segundos = 5 minutos
+
+        // 3. Sanitizar los datos de entrada
+        $assistant_id = isset($_POST['assistant_id']) ? intval($_POST['assistant_id']) : 0;
+        $post_ids = isset($_POST['post_ids']) && is_array($_POST['post_ids']) ? array_map('intval', $_POST['post_ids']) : [];
+        $cpt_slugs = isset($_POST['cpt_slugs']) && is_array($_POST['cpt_slugs']) ? array_map('sanitize_text_field', $_POST['cpt_slugs']) : [];
+
+        if ($assistant_id === 0) {
+            wp_send_json_error(['message' => 'Error: No se ha identificado al asistente.']);
+        }
+
+        // 4. Llamar al gestor de Pinecone con los datos limpios
+        AICP_Pinecone_Manager::handle_sync_request($assistant_id, $post_ids, $cpt_slugs);
     }
 
     public static function handle_human_takeover() {
