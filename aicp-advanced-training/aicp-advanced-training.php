@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Chatbot Pro - Advanced Training
  * Description: Addon para AI Chatbot Pro que activa funcionalidades PRO como entrenamiento avanzado (RAG) y traspaso a humano.
- * Version: 1.1
+ * Version: 1.2
  * Author: Óscar García
  */
 
@@ -50,14 +50,14 @@ function aicp_pro_enqueue_admin_scripts($hook) {
             'aicp-admin-pro-js',
             $plugin_url . 'assets/js/admin-pro.js',
             ['jquery'],
-            '1.1', // Incrementar versión para evitar caché
+            '1.2', // Incrementar versión para evitar caché
             true
         );
-        // Pasamos el ID del asistente al script
+        // Pasamos todos los parámetros necesarios al script de forma segura
         wp_localize_script('aicp-admin-pro-js', 'aicp_pro_params', [
-            'assistant_id' => $post->ID,
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('aicp_save_meta_box_data')
+            'nonce' => wp_create_nonce('aicp_save_meta_box_data'),
+            'assistant_id' => $post->ID,
         ]);
     }
 }
