@@ -8,15 +8,15 @@ class AICP_Pinecone_Manager {
      */
     public static function handle_sync_request() {
         // --- INICIO DE LA CORRECCIÓN ---
-        // Se obtiene el ID del asistente desde la petición AJAX para saber para quién es el entrenamiento.
+        // Se obtiene el ID del asistente desde la petición AJAX.
         $assistant_id = isset($_POST['assistant_id']) ? intval($_POST['assistant_id']) : 0;
         if ($assistant_id === 0) {
             wp_send_json_error(['message' => 'Error: No se ha identificado al asistente.']);
         }
         
-        // Obtenemos los ajustes de ESE asistente para saber qué posts tiene seleccionados.
-        $settings = get_post_meta($assistant_id, '_aicp_assistant_settings', true);
-        $post_ids_to_index = $settings['training_post_ids'] ?? [];
+        // Se obtienen los IDs de los posts directamente desde la petición AJAX,
+        // en lugar de leerlos de la base de datos.
+        $post_ids_to_index = isset($_POST['post_ids']) && is_array($_POST['post_ids']) ? array_map('intval', $_POST['post_ids']) : [];
         // --- FIN DE LA CORRECCIÓN ---
 
         if (empty($post_ids_to_index)) {
