@@ -7,18 +7,16 @@ jQuery(function($) {
         const $button = $(this);
         const $status = $('#aicp-sync-status');
 
-        const selectedPostIds = [];
-        $('input[name="aicp_settings[training_post_ids][]"]:checked').each(function() {
-            selectedPostIds.push($(this).val());
-        });
+        const selectedPostIds = $('input[name="aicp_settings[training_post_ids][]"]:checked').map(function() {
+            return $(this).val();
+        }).get();
 
-        const selectedCptSlugs = [];
-        $('input[name="aicp_settings[training_post_types][]"]:checked').each(function() {
-            selectedCptSlugs.push($(this).val());
-        });
+        const selectedCptSlugs = $('input[name="aicp_settings[training_post_types][]"]:checked').map(function() {
+            return $(this).val();
+        }).get();
 
         if (selectedPostIds.length === 0 && selectedCptSlugs.length === 0) {
-            $status.text('Por favor, selecciona al menos una página, entrada o tipo de contenido.').css('color', 'red');
+            $status.text('Por favor, selecciona al menos un contenido.').css('color', 'red');
             return;
         }
 
@@ -26,14 +24,14 @@ jQuery(function($) {
         $status.text('Sincronizando... Esto puede tardar varios minutos.').css('color', 'orange');
 
         $.ajax({
-            url: ajaxurl,
+            url: ajaxurl, // Usa la variable global de WordPress 'ajaxurl'
             type: 'POST',
             data: {
                 action: 'aicp_start_sync',
-                nonce: $('#aicp_meta_box_nonce').val(),
+                nonce: $('#aicp_meta_box_nonce').val(), // Nonce de seguridad
                 post_ids: selectedPostIds,
                 cpt_slugs: selectedCptSlugs,
-                assistant_id: aicp_admin_params.assistant_id
+                assistant_id: $('input#post_ID').val() // Obtiene el ID del asistente de la página
             },
             success: function(response) {
                 if (response.success) {
