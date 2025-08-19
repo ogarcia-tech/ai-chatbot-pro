@@ -7,30 +7,45 @@ class AICP_Pinecone_Manager {
      * Inicia el proceso de sincronización real.
      */
     public static function handle_sync_request() {
-        // --- INICIO DE LA CORRECCIÓN ---
-        // Se obtiene el ID del asistente desde la petición AJAX.
         $assistant_id = isset($_POST['assistant_id']) ? intval($_POST['assistant_id']) : 0;
         if ($assistant_id === 0) {
             wp_send_json_error(['message' => 'Error: No se ha identificado al asistente.']);
         }
         
-        // Se obtienen los IDs de los posts directamente desde la petición AJAX,
-        // en lugar de leerlos de la base de datos.
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Recibimos los IDs de posts/páginas individuales
         $post_ids_to_index = isset($_POST['post_ids']) && is_array($_POST['post_ids']) ? array_map('intval', $_POST['post_ids']) : [];
+        
+        // Recibimos los slugs de los Tipos de Contenido Personalizado (CPT)
+        $cpt_slugs_to_index = isset($_POST['cpt_slugs']) && is_array($_POST['cpt_slugs']) ? array_map('sanitize_text_field', $_POST['cpt_slugs']) : [];
+
+        // Si se seleccionaron CPTs, buscamos todos sus posts y añadimos sus IDs a la lista
+        if (!empty($cpt_slugs_to_index)) {
+            $cpt_posts = get_posts([
+                'post_type' => $cpt_slugs_to_index,
+                'posts_per_page' => -1,
+                'post_status' => 'publish',
+                'fields' => 'ids' // Solo necesitamos los IDs para optimizar la consulta
+            ]);
+            if (!empty($cpt_posts)) {
+                // Fusionamos los IDs individuales con los encontrados en los CPTs y eliminamos duplicados
+                $post_ids_to_index = array_unique(array_merge($post_ids_to_index, $cpt_posts));
+            }
+        }
         // --- FIN DE LA CORRECCIÓN ---
 
         if (empty($post_ids_to_index)) {
-            wp_send_json_error(['message' => 'No has seleccionado ningún contenido para sincronizar en la pestaña de Funciones PRO.']);
+            // Se cambia el mensaje de error para ser más claro
+            wp_send_json_error(['message' => 'No se encontró contenido publicable para sincronizar con las opciones seleccionadas.']);
         }
         
         $posts_to_index = get_posts([
             'post__in' => $post_ids_to_index,
-            'post_type' => 'any', // Buscamos en cualquier tipo de post para asegurar que encontramos los IDs
+            'post_type' => 'any',
             'posts_per_page' => -1,
             'post_status' => 'publish',
         ]);
         
-        // Si por alguna razón los posts seleccionados ya no existen, devolvemos 0.
         if (empty($posts_to_index)) {
             wp_send_json_success([
                 'message' => '0 fragmentos de contenido procesados. Asegúrate de que el contenido seleccionado está publicado.',
@@ -63,7 +78,6 @@ class AICP_Pinecone_Manager {
             }
         }
 
-        // Guardamos el número de fragmentos en la base de datos del asistente correcto.
         update_post_meta($assistant_id, '_aicp_chunks_count', $processed_count);
 
         wp_send_json_success([
