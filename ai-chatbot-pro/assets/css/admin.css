@@ -1,0 +1,101 @@
+/**
+ * Estilos para el panel de administración de AI Chatbot Pro
+ */
+
+/* Pestañas */
+.aicp-nav-tab-wrapper { margin-bottom: -1px; }
+.aicp-tab-content { margin-top: 1em; }
+.aicp-pro-tag {
+    display: inline-block; background-color: #ffba00; color: #000;
+    font-size: 9px; font-weight: bold; padding: 2px 6px;
+    border-radius: 3px; margin-left: 5px; vertical-align: middle;
+}
+.aicp-pro-feature-wrapper { background-color: #fff; border: 1px solid #ddd; padding: 20px; text-align: center; }
+
+/* Layout de Diseño y Previsualización */
+.aicp-design-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+@media (max-width: 960px) { .aicp-design-layout { grid-template-columns: 1fr; } }
+
+/* Uploader de imágenes */
+.aicp-uploader-wrapper { display: flex; align-items: center; gap: 10px; }
+.aicp-preview-image { 
+    width: 40px; 
+    height: 40px; 
+    border-radius: 50%; 
+    object-fit: cover; 
+    border: 1px solid #ddd; 
+    background-color: white; 
+}
+.aicp-uploader-wrapper img[id="open_icon_preview"] {
+    border-radius: 0;
+    background-color: transparent;
+    padding: 5px; /* Añadir padding para que el icono no se vea pegado al borde */
+}
+
+/* Tabla de logs y acciones */
+.aicp-logs-table { margin-top: 1em; }
+.aicp-history-actions { margin-bottom: 1em; display: flex; gap: 10px; }
+.aicp-history-actions .button[disabled] {
+    color: #a0a5aa !important;
+    border-color: #dcdcde !important;
+    background: #f6f7f7 !important;
+    cursor: not-allowed;
+}
+
+/* Modal (Popup) para ver detalles del log */
+#aicp-log-modal-backdrop {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.7); z-index: 100000;
+    display: none; align-items: center; justify-content: center;
+}
+#aicp-log-modal-content {
+    background: #f9f9f9; width: 90%; max-width: 700px; max-height: 80vh;
+    border-radius: 8px; box-shadow: 0 5px 25px rgba(0,0,0,0.4);
+    display: flex; flex-direction: column;
+}
+#aicp-log-modal-close { position: absolute; top: 15px; right: 20px; font-size: 2.5em; line-height: 1; color: #fff; cursor: pointer; opacity: 0.8; }
+#aicp-log-modal-close:hover { opacity: 1; }
+#aicp-log-modal-body { padding: 20px 30px; overflow-y: auto; }
+#aicp-log-modal-body h3 { margin-top: 0; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 15px; }
+#aicp-log-modal-body .aicp-modal-lead-data { background: #fff; border: 1px solid #ddd; border-left: 4px solid #4CAF50; padding: 15px; margin-bottom: 20px; }
+#aicp-log-modal-body .aicp-modal-lead-data strong { display: block; margin-bottom: 5px; }
+#aicp-log-modal-body .aicp-modal-chat-transcript { background: #fff; border: 1px solid #ddd; padding: 15px; max-height: 400px; overflow-y: auto; }
+.aicp-modal-chat-transcript .message { margin-bottom: 10px; }
+.aicp-modal-chat-transcript .message strong { text-transform: capitalize; display: block; margin-bottom: 3px; color: #555; }
+.aicp-modal-chat-transcript .message.user strong { color: #0073aa; }
+.aicp-modal-chat-transcript .message p { margin: 0; padding: 8px 12px; background: #f1f1f1; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; }
+#aicp-log-modal-footer { padding: 15px 30px; border-top: 1px solid #ddd; background: #f1f1f1; text-align: right; }
+
+/* Página de analíticas */
+#aicp-analytics-page .aicp-stats-boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
+#aicp-analytics-page .aicp-stat-box { background: #fff; padding: 20px; border: 1px solid #e5e5e5; box-shadow: 0 1px 1px rgba(0,0,0,.04); }
+#aicp-analytics-page .aicp-stat-box h2 { font-size: 2.5em; margin: 0; color: #0073aa; }
+#aicp-analytics-page .aicp-stat-box p { margin: 5px 0 0; font-size: 1.1em; color: #555; }
+#aicp-analytics-page .aicp-analytics-section { margin-top: 40px; background: #fff; padding: 20px; }
+
+/* Previsualización en Vivo */
+#aicp-preview-container {
+    background-color: #e9e9e9;
+    border: 1px solid #ccc;
+    padding: 20px;
+    border-radius: 4px;
+    position: sticky;
+    top: 50px;
+    height: 600px;
+    overflow: hidden;
+    position: relative; 
+}
+#aicp-preview-chatbot-container {
+    position: absolute !important;
+    transform: scale(0.9);
+}
+#aicp-preview-chatbot-container.position-br {
+    bottom: 20px;
+    right: 20px;
+    transform-origin: bottom right;
+}
+#aicp-preview-chatbot-container.position-bl {
+    bottom: 20px;
+    left: 20px;
+    transform-origin: bottom left;
+}

@@ -1,0 +1,441 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-07-19 17:37+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ai-chatbot-pro/includes/class-ajax-handler.php:66
+#: ai-chatbot-pro/includes/class-lead-manager.php:175
+#: ai-chatbot-pro/includes/class-lead-manager.php:210
+msgid "Datos inválidos."
+msgstr ""
+
+#: ai-chatbot-pro/includes/class-ajax-handler.php:73
+msgid "La API Key de OpenAI no está configurada."
+msgstr ""
+
+#: ai-chatbot-pro/includes/class-ajax-handler.php:107
+msgid "Respuesta inesperada."
+msgstr ""
+
+#: ai-chatbot-pro/includes/class-ajax-handler.php:113
+#: ai-chatbot-pro/includes/class-ajax-handler.php:123
+#: ai-chatbot-pro/admin/export-functions.php:17
+msgid "No tienes permisos."
+msgstr ""
+
+#: ai-chatbot-pro/includes/class-ajax-handler.php:115
+#: ai-chatbot-pro/includes/class-ajax-handler.php:126
+msgid "ID de log inválido."
+msgstr ""
+
+#: ai-chatbot-pro/includes/class-ajax-handler.php:118
+msgid "No se pudo borrar el registro."
+msgstr ""
+
+#: ai-chatbot-pro/includes/class-ajax-handler.php:132
+msgid "Log no encontrado."
+msgstr ""
+
+#: ai-chatbot-pro/includes/class-lead-manager.php:168
+#: ai-chatbot-pro/includes/class-lead-manager.php:203
+msgid "Token de seguridad inválido."
+msgstr ""
+
+#: ai-chatbot-pro/includes/class-lead-manager.php:247
+msgid "Lead de calendario registrado."
+msgstr ""
+
+#: ai-chatbot-pro/includes/class-lead-manager.php:249
+msgid "Error al registrar el lead."
+msgstr ""
+
+#: ai-chatbot-pro/ai-chatbot-pro.php:44
+#, php-format
+msgid "AI Chatbot Pro requiere PHP %1$s o superior. Tu versión actual es %2$s."
+msgstr ""
+
+#: ai-chatbot-pro/ai-chatbot-pro.php:56
+#, php-format
+msgid ""
+"AI Chatbot Pro requiere WordPress %1$s o superior. Tu versión actual es %2$s."
+msgstr ""
+
+#: ai-chatbot-pro/admin/export-functions.php:38
+msgid "No hay datos para exportar."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:16
+msgid "Instrucciones"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:17
+msgid "Diseño"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:18
+msgid "Funciones PRO"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:22
+msgid "Configuración del Asistente"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:23
+msgid "Shortcode"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:24
+msgid "Historial de Conversaciones"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:100
+msgid "Modelo de IA"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:101
+msgid "Nombre y Personalidad"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:102
+msgid "Objetivo Principal"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:103
+msgid "Longitud y Tono"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:104
+msgid "Ejemplo de Respuesta"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:105
+msgid "Mensajes Sugeridos"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:105
+msgid "Ej: Me interesa el servicio de SEO"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:105
+msgid "Ej: Quiero una web económica"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:105
+msgid "Ej: ¿Podéis llamarme?"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:105
+msgid "Estos mensajes aparecerán como botones clicables para el usuario."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:107
+msgid "URL del Calendario para Reservar Cita"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:110
+msgid ""
+"Si lo rellenas, el bot podrá sugerir este enlace para reservar cita cuando "
+"detecte intención de agendar."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:114
+msgid "Detección de Leads Mejorada"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:116
+msgid "Activar detección avanzada de leads (nombre, email, teléfono y web)"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:117
+msgid ""
+"El bot pedirá automáticamente estos datos si no los detecta en la "
+"conversación."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:134
+msgid "Avatares e Iconos"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:135
+msgid "Avatar del Bot"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:136
+msgid "Avatar de Usuario (por defecto)"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:136
+msgid "Si un usuario ha iniciado sesión, se usará su avatar de WordPress."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:137
+msgid "Icono del Botón Flotante"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:138
+msgid "Posición y Colores"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:139
+msgid "Posición del Widget"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:139
+msgid "Abajo a la Derecha"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:139
+msgid "Abajo a la Izquierda"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:140
+msgid "Color Principal"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:141
+msgid "Burbuja del Bot"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:141
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:142
+msgid "Fondo:"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:141
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:142
+msgid "Texto:"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:142
+msgid "Burbuja del Usuario"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:149
+msgid "Previsualización en Vivo"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:153
+msgid "Asistente de Prueba"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:154
+msgid "¡Hola! Esta es una previsualización."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:154
+msgid "¡Genial! Puedo ver los cambios en tiempo real."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:166
+msgid "Desbloquea todo el Potencial con la Versión PRO"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:167
+msgid ""
+"La versión PRO transforma tu chatbot en una herramienta de negocio de élite "
+"con funcionalidades exclusivas:"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:169
+msgid "Entrenamiento Avanzado:"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:169
+msgid ""
+"Permite que tu bot aprenda de todo tu contenido (PDFs, URLs, etc.) para dar "
+"respuestas increíblemente precisas."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:170
+msgid "Integraciones con Webhooks:"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:170
+msgid ""
+"Conecta los leads capturados directamente a tu CRM o herramientas de "
+"marketing."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:171
+msgid "Analíticas Detalladas:"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:171
+msgid ""
+"Accede a gráficas y métricas avanzadas para entender el rendimiento de tus "
+"asistentes."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:173
+msgid "Conseguir AI Chatbot Pro"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:178
+msgid "Elegir Imagen"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:178
+msgid "Quitar"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:180
+msgid "Usa este shortcode para mostrar el asistente."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:195
+msgid "No hay leads para exportar"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:196
+msgid "Exportar Leads (CSV)"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:198
+msgid "No hay historial para exportar"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:199
+msgid "Exportar Historial (CSV)"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:206
+msgid "No hay conversaciones registradas."
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:209
+msgid "Fecha"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:209
+msgid "Inicio de la Conversación"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:209
+msgid "Lead"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:209
+msgid "Acciones"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:257
+msgid "Ver conversación"
+msgstr ""
+
+#: ai-chatbot-pro/admin/cpt.php:12
+msgctxt "Post Type General Name"
+msgid "Asistentes de Chat"
+msgstr ""
+
+#: ai-chatbot-pro/admin/cpt.php:13
+msgctxt "Post Type Singular Name"
+msgid "Asistente"
+msgstr ""
+
+#: ai-chatbot-pro/admin/cpt.php:14
+msgid "Asistentes de Chat"
+msgstr ""
+
+#: ai-chatbot-pro/admin/cpt.php:15
+msgid "Todos los Asistentes"
+msgstr ""
+
+#: ai-chatbot-pro/admin/cpt.php:16
+msgid "Añadir Nuevo Asistente"
+msgstr ""
+
+#: ai-chatbot-pro/admin/cpt.php:17
+msgid "Añadir Nuevo"
+msgstr ""
+
+#: ai-chatbot-pro/admin/cpt.php:18
+msgid "Editar Asistente"
+msgstr ""
+
+#: ai-chatbot-pro/admin/cpt.php:21
+msgid "Asistente"
+msgstr ""
+
+#: ai-chatbot-pro/admin/cpt.php:22
+msgid "Asistentes de chat personalizables"
+msgstr ""
+
+#: ai-chatbot-pro/admin/settings-page.php:16
+msgid "Ajustes Generales"
+msgstr ""
+
+#: ai-chatbot-pro/admin/settings-page.php:17
+msgid "Ajustes"
+msgstr ""
+
+#: ai-chatbot-pro/admin/settings-page.php:30
+msgid "Ajustes de la API de OpenAI"
+msgstr ""
+
+#: ai-chatbot-pro/admin/settings-page.php:31
+msgid "API Key"
+msgstr ""
+
+#: ai-chatbot-pro/admin/settings-page.php:41
+msgid "Introduce tu clave API aquí"
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:13
+#: ai-chatbot-pro/admin/analytics-page.php:14
+msgid "Analíticas"
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:33
+msgid "Analíticas del Chatbot"
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:36
+msgid "Conversaciones Totales"
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:37
+msgid "Leads Capturados"
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:38
+msgid "Tasa de Conversión"
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:42
+msgid "Preguntas Más Frecuentes"
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:43
+msgid ""
+"Las primeras preguntas que los usuarios hacen al iniciar una conversación."
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:46
+msgid "Pregunta"
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:46
+msgid "Nº de Veces"
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:54
+msgid "No hay datos suficientes."
+msgstr ""
+
+#: ai-chatbot-pro/admin/analytics-page.php:60
+msgid "Leads por Calendario"
+msgstr ""
