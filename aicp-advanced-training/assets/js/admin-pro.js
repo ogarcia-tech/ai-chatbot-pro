@@ -9,16 +9,25 @@ jQuery(function($) {
         const $button = $(this);
         const $status = $('#aicp-sync-status');
 
-        // Recoger los IDs de los posts y páginas que el usuario ha marcado
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Recoger los IDs de los posts y páginas individuales
         const selectedPostIds = [];
         $('input[name="aicp_settings[training_post_ids][]"]:checked').each(function() {
             selectedPostIds.push($(this).val());
         });
 
-        if (selectedPostIds.length === 0) {
-            $status.text('Por favor, selecciona al menos una página o entrada.').css('color', 'red');
+        // Recoger los slugs de los Tipos de Contenido Personalizado (CPT)
+        const selectedCptSlugs = [];
+        $('input[name="aicp_settings[training_post_types][]"]:checked').each(function() {
+            selectedCptSlugs.push($(this).val());
+        });
+
+        // Comprobar si se ha seleccionado algo en cualquiera de las dos listas
+        if (selectedPostIds.length === 0 && selectedCptSlugs.length === 0) {
+            $status.text('Por favor, selecciona al menos una página, entrada o tipo de contenido.').css('color', 'red');
             return;
         }
+        // --- FIN DE LA CORRECCIÓN ---
 
         $button.prop('disabled', true);
         $status.text('Sincronizando... Esto puede tardar varios minutos.').css('color', 'orange');
@@ -29,8 +38,9 @@ jQuery(function($) {
             data: {
                 action: 'aicp_start_sync',
                 nonce: $('#aicp_meta_box_nonce').val(),
-                post_ids: selectedPostIds,
-                assistant_id: aicp_admin_params.assistant_id // <-- ESTA ES LA LÍNEA AÑADIDA
+                post_ids: selectedPostIds, // Enviamos los IDs individuales
+                cpt_slugs: selectedCptSlugs, // Enviamos los slugs de CPTs
+                assistant_id: aicp_admin_params.assistant_id
             },
             success: function(response) {
                 if (response.success) {
