@@ -100,7 +100,7 @@ class AICP_Pinecone_Manager {
         $response = wp_remote_post($pinecone_host . '/query', [
             'method'  => 'POST',
             'headers' => ['Content-Type' => 'application/json', 'Api-Key' => $pinecone_api_key],
-            'body'    => json_encode([
+            'body'    => wp_json_encode([ // <-- CORRECCIÓN AQUÍ
                 'vector' => $query_vector,
                 'topK' => 3,
                 'includeMetadata' => true,
@@ -141,7 +141,7 @@ class AICP_Pinecone_Manager {
         $response = wp_remote_post('https://api.openai.com/v1/embeddings', [
             'method'  => 'POST',
             'headers' => ['Content-Type'  => 'application/json', 'Authorization' => 'Bearer ' . $openai_api_key],
-            'body'    => json_encode(['model' => 'text-embedding-ada-002', 'input' => $text]),
+            'body'    => wp_json_encode(['model' => 'text-embedding-ada-002', 'input' => $text]), // <-- CORRECCIÓN AQUÍ
             'timeout' => 60,
         ]);
 
@@ -159,7 +159,7 @@ class AICP_Pinecone_Manager {
         $response = wp_remote_post($pinecone_host . '/vectors/upsert', [
             'method'  => 'POST',
             'headers' => ['Content-Type'  => 'application/json', 'Api-Key' => $pinecone_api_key],
-            'body'    => json_encode(['vectors' => [$vector_data]]),
+            'body'    => wp_json_encode(['vectors' => [$vector_data]]), // <-- CORRECCIÓN AQUÍ
             'timeout' => 60,
         ]);
         
