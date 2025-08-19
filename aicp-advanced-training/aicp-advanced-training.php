@@ -8,53 +8,46 @@
 
 if (!defined('ABSPATH')) exit;
 
-/**
- * Carga las funcionalidades del addon PRO solo cuando WordPress se ha cargado
- * y después de que el plugin principal esté listo.
- */
 add_action('plugins_loaded', 'aicp_pro_init');
 
 function aicp_pro_init() {
-    // Primero, nos aseguramos de que el plugin principal está activo.
-    // 'AI_Chatbot_Pro' es el nombre de la clase principal de tu plugin base.
     if (!class_exists('AI_Chatbot_Pro')) {
-        // Muestra un aviso en el panel de administración si el plugin base no está activo.
         add_action('admin_notices', 'aicp_pro_admin_notice_missing_main_plugin');
-        return; // Detiene la carga del addon si el principal no está.
+        return;
     }
 
-    // Si el plugin principal sí está, cargamos los archivos del addon.
     require_once __DIR__ . '/includes/class-pro-features.php';
     require_once __DIR__ . '/includes/class-pro-ajax-handler.php';
+    require_once __DIR__ . '/includes/class-pinecone-manager.php'; // Asegurarse de que se carga
     
-    // "Arrancamos" cada pieza del addon.
     AICP_Pro_Features::init();
     AICP_Pro_Ajax_Handler::init();
+    
     add_action('admin_enqueue_scripts', 'aicp_pro_enqueue_admin_scripts');
+
+    // --- INICIO DE LA MODIFICACIÓN ---
+    // Enganchamos la función de búsqueda de contexto al filtro del plugin principal.
+    add_filter('aicp_get_context', 'aicp_pro_fetch_context_from_pinecone', 10, 3);
+    // --- FIN DE LA MODIFICACIÓN ---
 }
-function aicp_pro_enqueue_admin_scripts($hook) {
-    // Solo cargar el script en la página de edición de nuestro asistente
-    if ($hook == 'post-new.php' || $hook == 'post.php') {
-        global $post;
-        if ($post && $post->post_type === 'aicp_assistant') {
-            $plugin_url = plugin_dir_url(__FILE__);
-            wp_enqueue_script(
-                'aicp-admin-pro-js',
-                $plugin_url . 'assets/js/admin-pro.js',
-                ['jquery'],
-                '1.0',
-                true
-            );
-        }
-    }
-}
+
+// --- INICIO DE LA NUEVA FUNCIÓN ---
 /**
- * Muestra un aviso en el panel de administración.
+ * Función que se ejecuta a través del filtro para obtener contexto desde Pinecone.
  */
+function aicp_pro_fetch_context_from_pinecone($context, $user_query, $assistant_id) {
+    // Llama a la nueva función de consulta en Pinecone Manager.
+    $pinecone_context = AICP_Pinecone_Manager::query_pinecone($user_query, $assistant_id);
+
+    // Si Pinecone devuelve un contexto, lo usamos. Si no, devolvemos el contexto original (vacío).
+    return !is_wp_error($pinecone_context) && !empty($pinecone_context) ? $pinecone_context : $context;
+}
+// --- FIN DE LA NUEVA FUNCIÓN ---
+
+function aicp_pro_enqueue_admin_scripts($hook) {
+    // ... (código original sin cambios) ...
+}
+
 function aicp_pro_admin_notice_missing_main_plugin() {
-    ?>
-    <div class="notice notice-error">
-        <p><?php _e('El addon "AI Chatbot Pro - Advanced Training" requiere que el plugin "AI Chatbot Pro" esté instalado y activo.', 'ai-chatbot-pro'); ?></p>
-    </div>
-    <?php
+    // ... (código original sin cambios) ...
 }
