@@ -37,9 +37,12 @@ jQuery(function($) {
                 const attachment = mediaUploader.state().get('selection').first().toJSON();
                 const url = attachment.url;
                 $('#' + targetId + '_url').val(url).trigger('change');
+                // Adicionalmente, actualizamos directamente la imagen de preview
+                $('#' + targetId + '_preview').attr('src', url);
             });
             mediaUploader.open();
         });
+
         $(document).on('click', '.aicp-remove-button', function(e) {
             e.preventDefault();
             const targetId = $(this).data('target-id');
@@ -49,6 +52,7 @@ jQuery(function($) {
             else if (targetId === 'open_icon') defaultImage = aicp_admin_params.default_open_icon;
             
             $('#' + targetId + '_url').val(defaultImage).trigger('change');
+            $('#' + targetId + '_preview').attr('src', defaultImage);
         });
     }
     
