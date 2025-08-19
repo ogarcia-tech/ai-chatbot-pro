@@ -444,8 +444,6 @@ function renderSuggestedReplies() {
         $(document).on('click', '.aicp-feedback-btn', handleFeedbackClick);
         $(document).on('click', '.aicp-calendar-link', handleCalendarClick);
         
-        // La línea del botón aicp-capture-lead-btn ha sido eliminada.
-        
         resetInactivityTimer();
     }
 });
