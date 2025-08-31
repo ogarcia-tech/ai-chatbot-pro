@@ -2,59 +2,52 @@
 if (!defined('ABSPATH')) exit;
 
 class AICP_Pro_Ajax_Handler {
+
     public static function init() {
-        add_action('wp_ajax_aicp_pro_human_takeover', [__CLASS__, 'handle_human_takeover']);
-        add_action('wp_ajax_nopriv_aicp_pro_human_takeover', [__CLASS__, 'handle_human_takeover']);
+        add_action('wp_ajax_aicp_check_api_keys', [__CLASS__, 'handle_check_api_keys']);
         add_action('wp_ajax_aicp_start_sync', [__CLASS__, 'handle_start_sync']);
+        // Reemplaza la acción de chat del plugin principal
+        add_action('wp_ajax_aicp_chat_request', [__CLASS__, 'handle_chat_request']);
+        add_action('wp_ajax_nopriv_aicp_chat_request', [__CLASS__, 'handle_chat_request']);
+    }
+
+    public static function handle_check_api_keys() {
+        if (!current_user_can('manage_options') || !check_ajax_referer('aicp_global_settings_nonce', 'nonce', false)) {
+            wp_send_json_error(['message' => 'Fallo de seguridad.']);
+        }
+        $result = AICP_OpenAI_Assistants_Manager::check_api_connection();
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message()]);
+        }
+        wp_send_json_success(['message' => '¡Conexión con OpenAI exitosa!']);
     }
 
     public static function handle_start_sync() {
-        // 1. Verificar seguridad y permisos
-        if (
-            !isset($_POST['nonce']) || 
-            !wp_verify_nonce($_POST['nonce'], 'aicp_save_meta_box_data') || 
-            !current_user_can('edit_posts')
-        ) {
-            wp_send_json_error(['message' => 'Fallo de seguridad o permisos insuficientes.']);
+        if (!current_user_can('edit_posts') || !check_ajax_referer('aicp_save_meta_box_data', 'nonce', false)) {
+            wp_send_json_error(['message' => 'Fallo de seguridad.']);
         }
-        
-        // 2. Aumentar el tiempo de ejecución para evitar timeouts
-        @set_time_limit(300); // 300 segundos = 5 minutos
-
-        // 3. Pasar el control al gestor de Pinecone para que maneje la petición
-        require_once __DIR__ . '/class-pinecone-manager.php';
-        AICP_Pinecone_Manager::handle_sync_request();
+        @set_time_limit(300); // 5 minutos de tiempo de ejecución
+        AICP_OpenAI_Assistants_Manager::handle_sync_request();
     }
 
-    public static function handle_human_takeover() {
-        // ... (el resto de esta función no necesita cambios)
+    public static function handle_chat_request() {
         check_ajax_referer('aicp_chat_nonce', 'nonce');
-
-        $log_id = isset($_POST['log_id']) ? intval($_POST['log_id']) : 0;
-        $conversation_json = isset($_POST['conversation']) ? wp_unslash($_POST['conversation']) : '[]';
-        $conversation = json_decode($conversation_json, true);
-        $assistant_id = isset($_POST['assistant_id']) ? intval($_POST['assistant_id']) : 0;
-
-        $assistant_name = get_the_title($assistant_id);
-        $admin_email = get_option('admin_email');
-        $subject = 'Solicitud de Asistencia Humana desde: ' . $assistant_name;
+        $assistant_id = isset($_POST['assistant_id']) ? absint($_POST['assistant_id']) : 0;
+        $history = isset($_POST['history']) && is_array($_POST['history']) ? wp_unslash($_POST['history']) : [];
         
-        $message = "Un usuario ha solicitado hablar con un humano desde el asistente '" . esc_html($assistant_name) . "'.<br><br>";
-        if ($log_id > 0) {
-             $message .= "Puedes ver la conversación en el historial del chatbot (Log ID: " . $log_id . ").<br><br>";
-        }
-        $message .= "<strong>--- Transcripción de la Conversación ---</strong><br><br>";
-
-        if (is_array($conversation)) {
-            foreach ($conversation as $msg) {
-                $role = ($msg['role'] === 'user') ? 'Usuario' : 'Asistente';
-                $message .= "<strong>" . $role . ":</strong> " . nl2br(esc_html($msg['content'])) . "<br><br>";
-            }
+        if (empty($assistant_id) || empty($history)) {
+            wp_send_json_error(['message' => 'Datos inválidos.']);
         }
 
-        $headers = ['Content-Type: text/html; charset=UTF-8'];
-        wp_mail($admin_email, $subject, $message, headers);
+        $user_message = end($history)['content'];
+        $session_id = isset($_POST['session_id']) ? sanitize_text_field($_POST['session_id']) : 'sess_' . uniqid();
 
-        wp_send_json_success(['message' => 'Notificación enviada.']);
+        $response = AICP_OpenAI_Assistants_Manager::handle_chat($assistant_id, $user_message, $session_id);
+
+        if (is_wp_error($response)) {
+            wp_send_json_error(['message' => $response->get_error_message()]);
+        }
+        
+        wp_send_json_success(['reply' => $response, 'session_id' => $session_id]);
     }
 }

@@ -15,11 +15,13 @@ class AICP_Ajax_Handler {
         add_action('wp_ajax_aicp_get_log_details', [__CLASS__, 'handle_get_log_details']);
         add_action('wp_ajax_nopriv_aicp_submit_feedback', [__CLASS__, 'handle_submit_feedback']);
         add_action('wp_ajax_aicp_submit_feedback', [__CLASS__, 'handle_submit_feedback']);
+        add_action('wp_ajax_aicp_submit_lead_form', [__CLASS__, 'handle_submit_lead_form']);
+        add_action('wp_ajax_nopriv_aicp_submit_lead_form', [__CLASS__, 'handle_submit_lead_form']);
         add_action('wp_ajax_aicp_finalize_chat', [__CLASS__, 'handle_finalize_chat']);
         add_action('wp_ajax_nopriv_aicp_finalize_chat', [__CLASS__, 'handle_finalize_chat']);
     }
     
-    private static function save_conversation($log_id, $assistant_id, $session_id, $conversation) {
+    private static function save_conversation($log_id, $assistant_id, $session_id, $conversation, $lead_data = []) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'aicp_chat_logs';
         
@@ -36,35 +38,47 @@ class AICP_Ajax_Handler {
         $data = [
             'assistant_id'     => $assistant_id,
             'session_id'       => $session_id,
+            'timestamp'        => current_time('mysql'),
             'conversation_log' => json_encode($conversation, JSON_UNESCAPED_UNICODE)
         ];
-        $format = ['%d', '%s', '%s'];
+        $format = ['%d', '%s', '%s', '%s'];
         
         if ($first_user_message) {
             $data['first_user_message'] = $first_user_message;
             $format[] = '%s';
         }
 
+        if (!empty($lead_data)) {
+            $data['has_lead'] = 1;
+            $data['lead_data'] = json_encode($lead_data, JSON_UNESCAPED_UNICODE);
+            $format[] = '%d';
+            $format[] = '%s';
+        }
+
+
         if ( $log_id > 0 ) {
             $wpdb->update( $table_name, $data, [ 'id' => $log_id ], $format, ['%d'] );
         } else {
-            $data['timestamp'] = current_time('mysql');
-            $format[] = '%s';
             $wpdb->insert( $table_name, $data, $format );
             $log_id = $wpdb->insert_id;
         }
 
+        // Se dispara la acción para que el Lead Manager procese la conversación
         do_action( 'aicp_conversation_saved', $log_id, $assistant_id, $conversation );
+
         return $log_id;
     }
 
     public static function handle_chat_request() {
         check_ajax_referer('aicp_chat_nonce', 'nonce');
 
+        // --- INICIO DE LA MODIFICACIÓN ---
         $assistant_id = isset($_POST['assistant_id']) ? absint($_POST['assistant_id']) : 0;
         $history = isset($_POST['history']) && is_array($_POST['history']) ? wp_unslash($_POST['history']) : [];
         $log_id = isset($_POST['log_id']) ? absint($_POST['log_id']) : 0;
-        
+        // Se añade la recepción del contexto de la página
+        $page_context = isset($_POST['page_context']) ? sanitize_textarea_field(wp_unslash($_POST['page_context'])) : '';
+
         if (empty($assistant_id) || empty($history)) { 
             wp_send_json_error(['message' => __('Datos inválidos.', 'ai-chatbot-pro')]); 
         }
@@ -84,46 +98,62 @@ class AICP_Ajax_Handler {
         if (!empty($s['length_tone'])) $system_prompt_parts[] = "TONO Y LONGITUD: " . $s['length_tone'];
         if (!empty($s['example'])) $system_prompt_parts[] = "EJEMPLO DE RESPUESTA: " . $s['example'];
         
-        $last_user_message = end($history)['content'] ?? '';
-        
-        // ESTE FILTRO ES LA CLAVE: Permite al addon PRO inyectar el contexto de Pinecone.
-        $rag_context = apply_filters('aicp_get_context', '', $last_user_message, $assistant_id);
-
-        if (!empty($rag_context)) {
-            $system_prompt_parts[] = "--- INICIO DEL CONTEXTO DE LA BASE DE DATOS ---\n" . $rag_context . "\n--- FIN DEL CONTEXTO ---";
-            $system_prompt_parts[] = "Responde a la pregunta del usuario basándote ESTRICTAMENTE en el contexto de la base de datos proporcionado. Si la información no está en el contexto, indica amablemente que no tienes esa información y no intentes adivinar.";
+        // Se añade el contexto de la página al prompt del sistema
+        if (!empty($page_context)) {
+            $system_prompt_parts[] = "--- INICIO DEL CONTEXTO DE LA PÁGINA ACTUAL ---\n" . $page_context . "\n--- FIN DEL CONTEXTO ---";
+            $system_prompt_parts[] = "Responde a las preguntas del usuario basándote en el contexto de la página proporcionado. Si la información no está en el contexto, indícalo amablemente.";
         }
 
         $system_prompt = implode("\n\n", $system_prompt_parts);
         if(empty($system_prompt)) $system_prompt = 'Eres un asistente de IA.';
         
+        $short_term_memory = array_slice($history, -4);
         $conversation = [['role' => 'system', 'content' => $system_prompt]];
-        foreach ($history as $item) { 
+        foreach ($short_term_memory as $item) { 
             if (isset($item['role'], $item['content'])) { 
                 $conversation[] = ['role' => sanitize_key($item['role']), 'content' => sanitize_textarea_field($item['content'])]; 
             } 
         }
         
         $api_url = 'https://api.openai.com/v1/chat/completions';
-        $api_args = ['method'  => 'POST', 'headers' => ['Content-Type'  => 'application/json', 'Authorization' => 'Bearer ' . $api_key], 'body'    => json_encode(['model' => $s['model'] ?? 'gpt-4o', 'messages' => $conversation]), 'timeout' => 60];
+        $api_args = [
+            'method'  => 'POST',
+            'headers' => ['Content-Type'  => 'application/json', 'Authorization' => 'Bearer ' . $api_key],
+            'body'    => json_encode(['model' => $s['model'] ?? 'gpt-4o', 'messages' => $conversation]),
+            'timeout' => 60,
+        ];
         $response = wp_remote_post($api_url, $api_args);
 
         if (is_wp_error($response)) { 
             wp_send_json_error(['message' => $response->get_error_message()]); 
         }
         
-        $data = json_decode(wp_remote_retrieve_body($response), true);
+        $body = wp_remote_retrieve_body($response);
+        $data = json_decode($body, true);
 
         if (isset($data['choices'][0]['message']['content'])) {
             $reply = $data['choices'][0]['message']['content'];
-            $history[] = ['role' => 'assistant', 'content' => $reply];
-            $session_id = session_id() ?: uniqid('aicp_');
-            $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $history);
 
-            wp_send_json_success(['reply' => trim($reply), 'log_id' => $new_log_id]);
+            $full_history = $history;
+            $full_history[] = ['role' => 'assistant', 'content' => $reply];
+
+            // Llamada al Lead Manager para detectar información de contacto.
+            $lead_info = AICP_Lead_Manager::detect_contact_data($full_history);
+
+            $session_id = session_id() ?: uniqid('aicp_');
+            // La función save_conversation ahora se encarga de llamar a la acción para procesar el lead.
+            $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $full_history, $lead_info['data']);
+
+            wp_send_json_success([
+                'reply'          => trim($reply),
+                'log_id'         => $new_log_id,
+                'lead_status'    => $lead_info['is_complete'] ? 'complete' : ($lead_info['has_lead'] ? 'partial' : 'none'),
+                'missing_fields' => $lead_info['missing_fields'],
+            ]);
         } else {
             wp_send_json_error(['message' => $data['error']['message'] ?? __('Respuesta inesperada.', 'ai-chatbot-pro')]);
         }
+        // --- FIN DE LA MODIFICACIÓN ---
     }
     
     public static function handle_delete_log() {
@@ -157,13 +187,125 @@ class AICP_Ajax_Handler {
         ]);
     }
 
+
     public static function handle_finalize_chat() {
         check_ajax_referer('aicp_chat_nonce', 'nonce');
-        // El resto del código de esta función no necesita cambios...
+
+        $assistant_id = isset($_POST['assistant_id']) ? absint($_POST['assistant_id']) : 0;
+        $log_id       = isset($_POST['log_id']) ? absint($_POST['log_id']) : 0;
+        $conversation = isset($_POST['conversation']) && is_array($_POST['conversation']) ? wp_unslash($_POST['conversation']) : [];
+
+        if (!$assistant_id || empty($conversation)) {
+            wp_send_json_error(['message' => __('Datos inválidos.', 'ai-chatbot-pro')]);
+        }
+
+        $global_settings = get_option('aicp_settings');
+        $api_key = $global_settings['api_key'] ?? '';
+        if (empty($api_key)) {
+            wp_send_json_error(['message' => __('La API Key de OpenAI no está configurada.', 'ai-chatbot-pro')]);
+        }
+
+        $conversation_text = '';
+        foreach ($conversation as $msg) {
+            $role = isset($msg['role']) ? strtoupper($msg['role']) : 'USER';
+            $content = isset($msg['content']) ? $msg['content'] : '';
+            $conversation_text .= "$role: $content\n";
+        }
+
+        $prompt = 'Extrae nombre, email y teléfono del siguiente chat y responde en formato JSON {"name":"","email":"","phone":""}:\n' . $conversation_text;
+
+        $api_url = 'https://api.openai.com/v1/chat/completions';
+        $api_args = [
+            'method'  => 'POST',
+            'headers' => [
+                'Content-Type'  => 'application/json',
+                'Authorization' => 'Bearer ' . $api_key,
+            ],
+            'body'    => wp_json_encode([
+                'model' => 'gpt-4o-mini',
+                'messages' => [
+                    ['role' => 'user', 'content' => $prompt]
+                ]
+            ]),
+            'timeout' => 60,
+        ];
+
+        $response = wp_remote_post($api_url, $api_args);
+
+        $lead_data = [];
+        $lead_status = 'failed';
+
+        if (!is_wp_error($response)) {
+            $body = wp_remote_retrieve_body($response);
+            $data = json_decode($body, true);
+            if (isset($data['choices'][0]['message']['content'])) {
+                $parsed = json_decode($data['choices'][0]['message']['content'], true);
+                if (is_array($parsed)) {
+                    $lead_data = [
+                        'name'  => $parsed['name']  ?? '',
+                        'email' => $parsed['email'] ?? '',
+                        'phone' => $parsed['phone'] ?? ''
+                    ];
+                    if (!empty($lead_data['email']) || !empty($lead_data['phone'])) {
+                        $lead_status = 'complete';
+                    }
+                }
+            }
+        }
+
+        $session_id = session_id() ?: uniqid('aicp_');
+        $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $conversation);
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'aicp_chat_logs';
+        $wpdb->update(
+            $table_name,
+            [
+                'has_lead'   => $lead_status === 'complete' ? 1 : 0,
+                'lead_data'  => wp_json_encode($lead_data, JSON_UNESCAPED_UNICODE),
+                'lead_status'=> $lead_status
+            ],
+            ['id' => $new_log_id],
+            ['%d', '%s', '%s'],
+            ['%d']
+        );
+
+        do_action('aicp_lead_detected', $lead_data, $assistant_id, $new_log_id, $lead_status);
+
+        wp_send_json_success(['status' => $lead_status]);
     }
 
     public static function handle_submit_feedback() {
         check_ajax_referer('aicp_feedback_nonce', 'nonce');
-        // El resto del código de esta función no necesita cambios...
+        $log_id = isset($_POST['log_id']) ? absint($_POST['log_id']) : 0;
+        $feedback = isset($_POST['feedback']) ? intval($_POST['feedback']) : 0;
+
+        if (!$log_id || !in_array($feedback, [1, -1])) {
+            wp_send_json_error(['message' => 'Datos inválidos.']);
+        }
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'aicp_chat_logs';
+        $updated = $wpdb->update($table_name, ['feedback' => $feedback], ['id' => $log_id], ['%d'], ['%d']);
+
+        if ($updated !== false) {
+            wp_send_json_success();
+        } else {
+            wp_send_json_error(['message' => 'No se pudo guardar el feedback.']);
+        }
+    }
+
+    public static function handle_submit_lead_form() {
+        check_ajax_referer('aicp_chat_nonce', 'nonce');
+        $assistant_id = isset($_POST['assistant_id']) ? absint($_POST['assistant_id']) : 0;
+        $answers = isset($_POST['answers']) && is_array($_POST['answers']) ? array_map('sanitize_text_field', $_POST['answers']) : [];
+
+        if (!$assistant_id || empty($answers)) {
+            wp_send_json_error(['message' => __('Datos incompletos.', 'ai-chatbot-pro')]);
+        }
+
+        do_action('aicp_lead_detected', $answers, $assistant_id, 0, 'form');
+
+        wp_send_json_success(['message' => __('Formulario enviado', 'ai-chatbot-pro')]);
     }
 }
