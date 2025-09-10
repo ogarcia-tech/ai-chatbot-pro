@@ -165,6 +165,20 @@ jQuery(function($) {
         });
     }
 
+    function handleCustomPromptToggle() {
+        const $textarea = $('#aicp_custom_prompt');
+        const $toggle = $('#aicp_edit_prompt_toggle');
+        function refresh() {
+            if ($toggle.is(':checked')) {
+                $textarea.prop('readonly', false);
+            } else {
+                $textarea.prop('readonly', true);
+            }
+        }
+        $toggle.on('change', refresh);
+        refresh();
+    }
+
 
     function handleLivePreview(element, value) {
         const $el = $(element);
@@ -250,6 +264,7 @@ jQuery(function($) {
         initLivePreview();
         handleDeleteLogFromList();
         initTemplateSelector();
+        handleCustomPromptToggle();
 
     }
 });

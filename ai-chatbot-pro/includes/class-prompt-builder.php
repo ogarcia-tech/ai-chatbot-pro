@@ -23,6 +23,10 @@ class AICP_Prompt_Builder {
     }
 
     public static function build($settings, $page_context = '') {
+        if (!empty($settings['custom_prompt'])) {
+            return $settings['custom_prompt'];
+        }
+
         $parts = [];
 
         $template_id = $settings['template_id'] ?? '';
