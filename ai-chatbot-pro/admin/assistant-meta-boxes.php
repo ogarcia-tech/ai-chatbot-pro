@@ -81,6 +81,11 @@ function aicp_admin_scripts($hook) {
                 'color_user_bg' => $settings['color_user_bg'] ?? '#dcf8c6',
                 'color_user_text' => $settings['color_user_text'] ?? '#000000',
                 'template_id' => $settings['template_id'] ?? '',
+                'persona' => $settings['persona'] ?? '',
+                'objective' => $settings['objective'] ?? '',
+                'length_tone' => $settings['length_tone'] ?? '',
+                'example' => $settings['example'] ?? '',
+                'quick_replies' => $settings['quick_replies'] ?? [],
             ],
             'meta' => $meta,
         ]);
@@ -159,10 +164,10 @@ function aicp_render_instructions_tab($v) {
             </td>
         </tr>
 
-        <tr><th><label for="aicp_persona"><?php _e('Nombre y Personalidad', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[persona]" id="aicp_persona" rows="3" class="large-text"><?php echo esc_textarea($v['persona'] ?? 'Te llamas Ana, eres una asistente virtual experta en marketing digital.'); ?></textarea></td></tr>
-        <tr><th><label for="aicp_objective"><?php _e('Objetivo Principal', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[objective]" id="aicp_objective" rows="2" class="large-text"><?php echo esc_textarea($v['objective'] ?? 'Mi objetivo es ayudar a los usuarios a encontrar la información que necesitan y animarles a contactar para obtener un presupuesto.'); ?></textarea></td></tr>
-        <tr><th><label for="aicp_length_tone"><?php _e('Longitud y Tono', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[length_tone]" id="aicp_length_tone" rows="3" class="large-text"><?php echo esc_textarea($v['length_tone'] ?? 'Intenta ser lo más concisa posible, manteniendo un tono amable y profesional.'); ?></textarea></td></tr>
-        <tr><th><label for="aicp_example"><?php _e('Ejemplo de Respuesta', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[example]" id="aicp_example" rows="5" class="large-text"><?php echo esc_textarea($v['example'] ?? 'Si el cliente pregunta por el precio de una web, responde: "El precio de una web puede variar mucho, pero para darte una idea, nuestros proyectos suelen empezar en 1.500€. ¿Te gustaría que te preparásemos un presupuesto detallado sin compromiso?"'); ?></textarea></td></tr>
+        <tr><th><label for="aicp_persona"><?php _e('Nombre y Personalidad', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[persona]" id="aicp_persona" rows="3" class="large-text"><?php echo esc_textarea($v['persona'] ?? ''); ?></textarea></td></tr>
+        <tr><th><label for="aicp_objective"><?php _e('Objetivo Principal', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[objective]" id="aicp_objective" rows="2" class="large-text"><?php echo esc_textarea($v['objective'] ?? ''); ?></textarea></td></tr>
+        <tr><th><label for="aicp_length_tone"><?php _e('Longitud y Tono', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[length_tone]" id="aicp_length_tone" rows="3" class="large-text"><?php echo esc_textarea($v['length_tone'] ?? ''); ?></textarea></td></tr>
+        <tr><th><label for="aicp_example"><?php _e('Ejemplo de Respuesta', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[example]" id="aicp_example" rows="5" class="large-text"><?php echo esc_textarea($v['example'] ?? ''); ?></textarea></td></tr>
         <tr><th><label><?php _e('Respuestas Rápidas', 'ai-chatbot-pro'); ?></label></th><td><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][0] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Me interesa el servicio de SEO', 'ai-chatbot-pro'); ?>"><br><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][1] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Quiero una web económica', 'ai-chatbot-pro'); ?>"><br><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][2] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: ¿Podéis llamarme?', 'ai-chatbot-pro'); ?>"><p class="description"><?php _e('Estas respuestas aparecerán como botones clicables para el usuario.', 'ai-chatbot-pro'); ?></p></td></tr>
         <tr>
             <th><label for="aicp_custom_prompt"><?php _e('Prompt generado', 'ai-chatbot-pro'); ?></label></th>
