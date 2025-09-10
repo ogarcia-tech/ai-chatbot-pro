@@ -294,8 +294,8 @@ function aicp_save_meta_box_data($post_id) {
     $current['objective'] = isset($s['objective']) ? sanitize_textarea_field($s['objective']) : '';
     $current['length_tone'] = isset($s['length_tone']) ? sanitize_textarea_field($s['length_tone']) : '';
     $current['example'] = isset($s['example']) ? sanitize_textarea_field($s['example']) : '';
-    if (isset($s['suggested_messages']) && is_array($s['suggested_messages'])) { 
-        $current['suggested_messages'] = array_map('sanitize_text_field', $s['suggested_messages']); 
+    if (isset($s['suggested_messages']) && is_array($s['suggested_messages'])) {
+        $current['suggested_messages'] = array_filter(array_map('sanitize_text_field', $s['suggested_messages']));
     }
 
     // Diseño
