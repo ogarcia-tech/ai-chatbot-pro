@@ -351,4 +351,4 @@ jQuery(function($) {
         handleCustomPromptToggle();
 
     }
-});
+}); 

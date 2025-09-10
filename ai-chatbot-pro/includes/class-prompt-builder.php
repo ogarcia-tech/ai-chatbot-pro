@@ -55,7 +55,7 @@ class AICP_Prompt_Builder {
                 }
             }
         }
-
+ 
         // Añadir campos individuales solo si la plantilla no está seleccionada o si queremos un sistema mixto
         // En este caso, la plantilla se considera el prompt principal y los campos son modificadores.
         // La lógica actual ya los une. Solo hay que asegurarse de que no dupliquen información.
