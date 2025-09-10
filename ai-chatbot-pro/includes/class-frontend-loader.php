@@ -89,8 +89,13 @@ class AICP_Frontend_Loader {
             $user_avatar = get_avatar_url(get_current_user_id(), ['size' => 96]);
         }
 
-        // Obtener mensajes sugeridos
-        $quick_replies = array_filter(array_map('sanitize_text_field', $s['suggested_messages'] ?? []));
+
+        // Obtener respuestas rápidas
+        $quick_replies = [];
+        if (!empty($s['quick_replies'])) {
+            $quick_replies = array_filter(array_map('trim', explode("\n", $s['quick_replies'])));
+        }
+
 
         // Obtener configuración de detección de leads
 
@@ -109,7 +114,8 @@ class AICP_Frontend_Loader {
             'position' => $s['position'] ?? 'br',
 
             'open_icon' => !empty($s['open_icon_url']) ? esc_url($s['open_icon_url']) : $default_bot_avatar,
-            'quick_replies'     => $quick_replies,
+
+            'quick_replies' => $quick_replies,
 
             'lead_auto_collect'  => $lead_auto_collect,
 
