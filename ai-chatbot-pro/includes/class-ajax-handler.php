@@ -39,7 +39,7 @@ class AICP_Ajax_Handler {
             'assistant_id'     => $assistant_id,
             'session_id'       => $session_id,
             'timestamp'        => current_time('mysql'),
-            'conversation_log' => json_encode($conversation, JSON_UNESCAPED_UNICODE)
+            'conversation_log' => wp_json_encode($conversation, JSON_UNESCAPED_UNICODE)
         ];
         $format = ['%d', '%s', '%s', '%s'];
         
@@ -50,7 +50,7 @@ class AICP_Ajax_Handler {
 
         if (!empty($lead_data)) {
             $data['has_lead'] = 1;
-            $data['lead_data'] = json_encode($lead_data, JSON_UNESCAPED_UNICODE);
+            $data['lead_data'] = wp_json_encode($lead_data, JSON_UNESCAPED_UNICODE);
             $format[] = '%d';
             $format[] = '%s';
         }
