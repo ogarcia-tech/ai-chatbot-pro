@@ -75,15 +75,12 @@ function aicp_api_key_render() {
 
 function aicp_model_render() {
     $options = get_option('aicp_settings');
-    $model = $options['model'] ?? 'gpt-3.5-turbo';
-    ?>
-    <select name="aicp_settings[model]">
-        <option value="gpt-3.5-turbo" <?php selected($model, 'gpt-3.5-turbo'); ?>>GPT-3.5 Turbo</option>
-        <option value="gpt-4" <?php selected($model, 'gpt-4'); ?>>GPT-4</option>
-        <option value="gpt-4-turbo-preview" <?php selected($model, 'gpt-4-turbo-preview'); ?>>GPT-4 Turbo</option>
-        <option value="gpt-4o" <?php selected($model, 'gpt-4o'); ?>>GPT-4o</option>
-    </select>
-    <?php
+    $model = isset($options['model']) && isset(AICP_AVAILABLE_MODELS[$options['model']]) ? $options['model'] : array_key_first(AICP_AVAILABLE_MODELS);
+    echo '<select name="aicp_settings[model]">';
+    foreach (AICP_AVAILABLE_MODELS as $value => $label) {
+        printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($model, $value, false), esc_html($label));
+    }
+    echo '</select>';
 }
 
 function aicp_instructions_section_callback() {
@@ -127,7 +124,8 @@ function aicp_sanitize_options($input) {
         $sanitized_input['api_key'] = sanitize_text_field($input['api_key']);
     }
     if (isset($input['model'])) {
-        $sanitized_input['model'] = sanitize_text_field($input['model']);
+        $model = sanitize_text_field($input['model']);
+        $sanitized_input['model'] = array_key_exists($model, AICP_AVAILABLE_MODELS) ? $model : array_key_first(AICP_AVAILABLE_MODELS);
     }
     if (isset($input['assistant_name'])) {
         $sanitized_input['assistant_name'] = sanitize_text_field($input['assistant_name']);
