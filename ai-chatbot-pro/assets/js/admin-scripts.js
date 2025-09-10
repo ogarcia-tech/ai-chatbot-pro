@@ -114,7 +114,7 @@ jQuery(function($) {
                         $('tr[data-log-id="' + logId + '"]').fadeOut(300, function() { $(this).remove(); });
                     } else { alert('Error: ' + response.data.message); }
                 },
-                error: function() { alert('Error de conexión.'); }
+                error: function() { $modalBody.html('<p>Error de conexión.</p>'); }
             });
         });
     }
