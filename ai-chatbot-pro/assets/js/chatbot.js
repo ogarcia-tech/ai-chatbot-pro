@@ -74,9 +74,14 @@ jQuery(function($) {
         let remaining = text;
         while (remaining.length > maxLength) {
             let chunk = remaining.slice(0, maxLength);
-            const lastSpace = chunk.lastIndexOf(' ');
-            if (lastSpace > -1) {
-                chunk = chunk.slice(0, lastSpace);
+            const lastBreak = Math.max(chunk.lastIndexOf('.'), chunk.lastIndexOf('!'), chunk.lastIndexOf('?'), chunk.lastIndexOf('\n'));
+            if (lastBreak > -1) {
+                chunk = chunk.slice(0, lastBreak + 1);
+            } else {
+                const lastSpace = chunk.lastIndexOf(' ');
+                if (lastSpace > -1) {
+                    chunk = chunk.slice(0, lastSpace);
+                }
             }
             parts.push(chunk);
             remaining = remaining.slice(chunk.length).trimStart();

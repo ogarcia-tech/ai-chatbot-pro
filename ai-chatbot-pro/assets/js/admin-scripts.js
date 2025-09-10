@@ -269,15 +269,11 @@ jQuery(function($) {
         // Función para rellenar los campos con los datos de una plantilla
         const fillFormWithTemplate = (tmpl) => {
             if (tmpl) {
-                // Generar el prompt completo de la plantilla para el campo único
-                let combinedPrompt = window.renderTemplate(tmpl.system_prompt_template, aicp_admin_params.meta);
-                
-                if (tmpl.persona) combinedPrompt += `\n\nPERSONALIDAD: ${tmpl.persona}`;
-                if (tmpl.objective) combinedPrompt += `\n\nOBJETIVO PRINCIPAL: ${tmpl.objective}`;
-                if (tmpl.length_tone) combinedPrompt += `\n\nTONO Y LONGITUD: ${tmpl.length_tone}`;
-                if (tmpl.example) combinedPrompt += `\n\nEJEMPLO DE RESPUESTA: ${tmpl.example}`;
-
-                $('#aicp_custom_prompt').val(combinedPrompt);
+                // Mapeo explícito y directo de cada campo
+                $('#aicp_persona').val(tmpl.persona || '');
+                $('#aicp_objective').val(tmpl.objective || '');
+                $('#aicp_length_tone').val(tmpl.length_tone || '');
+                $('#aicp_example').val(tmpl.example || '');
 
                 const qrData = tmpl.quick_replies || [];
                 $quickReplies.each(function(index) {
@@ -286,10 +282,11 @@ jQuery(function($) {
 
                 $('#aicp_edit_prompt_toggle').prop('checked', false);
             } else {
-                $('#aicp_custom_prompt').val('');
+                promptFields.forEach(field => $(`#aicp_${field}`).val(''));
                 $quickReplies.val('');
                 $('#aicp_edit_prompt_toggle').prop('checked', false);
             }
+            recompilePrompt();
         };
 
         window.loadAssistantTemplates(aicp_admin_params.templates_url).then((data) => {
@@ -303,21 +300,22 @@ jQuery(function($) {
             const initialTemplate = templates.find(t => t.id === initialTemplateId);
             if (initialTemplate) {
                 fillFormWithTemplate(initialTemplate);
-                // Sobreescribir con el prompt guardado si existe, ya que el usuario puede haberlo editado
-                if (aicp_admin_params.initial_settings.custom_prompt) {
-                    $('#aicp_custom_prompt').val(aicp_admin_params.initial_settings.custom_prompt);
-                }
+                promptFields.forEach(field => $(`#aicp_${field}`).val(aicp_admin_params.initial_settings[field] || $(`#aicp_${field}`).val()));
                 $quickReplies.each(function(index) {
                     $(this).val(aicp_admin_params.initial_settings.quick_replies[index] || $(this).val());
                 });
             }
+            recompilePrompt();
 
             $select.on('change', function() {
                 const tmpl = templates.find(t => t.id === this.value);
                 fillFormWithTemplate(tmpl);
             });
 
-            $('#aicp_custom_prompt').on('input', recompilePrompt);
+            promptFields.forEach(field => {
+                $(`#aicp_${field}`).on('input', recompilePrompt);
+            });
+
             $quickReplies.on('input', recompilePrompt);
 
             $('#aicp_edit_prompt_toggle').on('change', function() {
@@ -327,7 +325,6 @@ jQuery(function($) {
             });
         });
     }
-
     if ($('body').hasClass('post-type-aicp_assistant')) {
         handleTabs();
         handleMediaUploader();

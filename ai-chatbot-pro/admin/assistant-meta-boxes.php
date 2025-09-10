@@ -135,8 +135,8 @@ function aicp_render_main_meta_box($post) {
     <?php // Lógica corregida y limpia para mostrar el contenido PRO o el mensaje de venta.
     if (class_exists('AICP_Pro_Features')) : ?>
         <div id="aicp-tab-pro" class="aicp-tab-content" style="display:none;">
-            <?php 
-            do_action('aicp_pro_tab_content'); 
+            <?php
+            do_action('aicp_pro_tab_content');
             ?>
         </div>
     <?php else: ?>
@@ -178,19 +178,15 @@ function aicp_render_instructions_tab($v) {
             </td>
         </tr>
 
-        <tr>
-            <th><label><?php _e('Respuestas Rápidas', 'ai-chatbot-pro'); ?></label></th>
-            <td>
-                <input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][0] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Me interesa el servicio de SEO', 'ai-chatbot-pro'); ?>"><br>
-                <input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][1] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Quiero una web económica', 'ai-chatbot-pro'); ?>"><br>
-                <input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][2] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: ¿Podéis llamarme?', 'ai-chatbot-pro'); ?>"><br>
-                <p class="description"><?php _e('Estas respuestas aparecerán como botones clicables para el usuario.', 'ai-chatbot-pro'); ?></p>
-            </td>
-        </tr>
+        <tr><th><label for="aicp_persona"><?php _e('Nombre y Personalidad', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[persona]" id="aicp_persona" rows="3" class="large-text"><?php echo esc_textarea($v['persona'] ?? ''); ?></textarea></td></tr>
+        <tr><th><label for="aicp_objective"><?php _e('Objetivo Principal', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[objective]" id="aicp_objective" rows="2" class="large-text"><?php echo esc_textarea($v['objective'] ?? ''); ?></textarea></td></tr>
+        <tr><th><label for="aicp_length_tone"><?php _e('Longitud y Tono', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[length_tone]" id="aicp_length_tone" rows="3" class="large-text"><?php echo esc_textarea($v['length_tone'] ?? ''); ?></textarea></td></tr>
+        <tr><th><label for="aicp_example"><?php _e('Ejemplo de Respuesta', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[example]" id="aicp_example" rows="5" class="large-text"><?php echo esc_textarea($v['example'] ?? ''); ?></textarea></td></tr>
+        <tr><th><label><?php _e('Respuestas Rápidas', 'ai-chatbot-pro'); ?></label></th><td><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][0] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Me interesa el servicio de SEO', 'ai-chatbot-pro'); ?>"><br><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][1] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Quiero una web económica', 'ai-chatbot-pro'); ?>"><br><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][2] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: ¿Podéis llamarme?', 'ai-chatbot-pro'); ?>"><p class="description"><?php _e('Estas respuestas aparecerán como botones clicables para el usuario.', 'ai-chatbot-pro'); ?></p></td></tr>
         <tr>
             <th><label for="aicp_custom_prompt"><?php _e('Prompt generado', 'ai-chatbot-pro'); ?></label></th>
             <td>
-                <textarea name="aicp_settings[custom_prompt]" id="aicp_custom_prompt" rows="15" class="large-text" readonly><?php echo esc_textarea($prompt); ?></textarea>
+                <textarea name="aicp_settings[custom_prompt]" id="aicp_custom_prompt" rows="8" class="large-text" readonly><?php echo esc_textarea($prompt); ?></textarea>
                 <p><label><input type="checkbox" name="aicp_settings[use_custom_prompt]" id="aicp_edit_prompt_toggle" <?php checked(!empty($v['custom_prompt'])); ?>> <?php _e('Editar manualmente', 'ai-chatbot-pro'); ?></label></p>
             </td>
         </tr>
@@ -245,6 +241,9 @@ function aicp_render_leads_tab($assistant_id, $v) {
     $auto_collect = !empty($v['lead_auto_collect']);
     $lead_email   = $v['lead_email'] ?? '';
     $webhook      = esc_url($v['webhook_url'] ?? '');
+    
+    // Nuevo campo para los campos de lead dinámicos
+    $lead_fields = isset($v['lead_fields']) && is_array($v['lead_fields']) ? $v['lead_fields'] : [];
 
     echo '<h4>' . __('Ajustes de Captura de Leads', 'ai-chatbot-pro') . '</h4>';
     echo '<table class="form-table"><tbody>';
@@ -253,7 +252,24 @@ function aicp_render_leads_tab($assistant_id, $v) {
     echo '<tr><th><label for="aicp_webhook_url">' . __('Webhook URL', 'ai-chatbot-pro') . '</label></th><td><input type="url" name="aicp_settings[webhook_url]" id="aicp_webhook_url" value="' . esc_attr($webhook) . '" class="regular-text" placeholder="https://example.com/webhook" /></td></tr>';
     echo '</tbody></table>';
 
-    // --- SECCIÓN DE MENSAJES DE CIERRE ELIMINADA ---
+    // Sección para campos de lead dinámicos
+    echo '<h4>' . __('Campos de Lead Personalizados', 'ai-chatbot-pro') . '</h4>';
+    echo '<p class="description">' . __('Añade los campos de información específica que el asistente debe capturar.', 'ai-chatbot-pro') . '</p>';
+    echo '<table class="form-table aicp-lead-fields-table"><thead><tr><th>' . __('Etiqueta', 'ai-chatbot-pro') . '</th><th>' . __('Nombre de Campo', 'ai-chatbot-pro') . '</th><th>' . __('Tipo', 'ai-chatbot-pro') . '</th><th>' . __('Requerido', 'ai-chatbot-pro') . '</th><th>' . __('Acciones', 'ai-chatbot-pro') . '</th></tr></thead><tbody>';
+
+    foreach ($lead_fields as $field) {
+        $required = isset($field['required']) && $field['required'] === '1' ? '1' : '0';
+        echo '<tr>';
+        echo '<td><input type="text" name="aicp_settings[lead_fields][' . esc_attr($field['name']) . '][label]" value="' . esc_attr($field['label']) . '" /></td>';
+        echo '<td><input type="text" name="aicp_settings[lead_fields][' . esc_attr($field['name']) . '][name]" value="' . esc_attr($field['name']) . '" readonly /></td>';
+        echo '<td><select name="aicp_settings[lead_fields][' . esc_attr($field['name']) . '][type]"><option value="text" ' . selected($field['type'], 'text', false) . '>Texto</option><option value="email" ' . selected($field['type'], 'email', false) . '>Email</option><option value="phone" ' . selected($field['type'], 'phone', false) . '>Teléfono</option><option value="date" ' . selected($field['type'], 'date', false) . '>Fecha</option></select></td>';
+        echo '<td><input type="checkbox" name="aicp_settings[lead_fields][' . esc_attr($field['name']) . '][required]" value="1" ' . checked($required, '1', false) . ' /></td>';
+        echo '<td><button type="button" class="button button-link-delete aicp-remove-lead-field">X</button></td>';
+        echo '</tr>';
+    }
+    
+    echo '</tbody></table>';
+    echo '<button type="button" class="button aicp-add-lead-field">' . __('Añadir Campo', 'ai-chatbot-pro') . '</button>';
 
     // Historial de Conversaciones
     $table_name = $wpdb->prefix . 'aicp_chat_logs';
@@ -407,6 +423,20 @@ function aicp_save_meta_box_data($post_id) {
     $current['lead_email']        = isset($s['lead_email']) ? sanitize_email($s['lead_email']) : '';
     $current['webhook_url']       = isset($s['webhook_url']) ? esc_url_raw($s['webhook_url']) : '';
 
+    // Guardar los nuevos campos de lead dinámicos
+    $current['lead_fields'] = [];
+    if (isset($s['lead_fields']) && is_array($s['lead_fields'])) {
+        foreach ($s['lead_fields'] as $field) {
+            if (!empty($field['name'])) {
+                $current['lead_fields'][sanitize_key($field['name'])] = [
+                    'label' => sanitize_text_field($field['label'] ?? ''),
+                    'name' => sanitize_key($field['name']),
+                    'type' => sanitize_key($field['type'] ?? 'text'),
+                    'required' => isset($field['required']) ? 1 : 0,
+                ];
+            }
+        }
+    }
 
     // Se elimina el guardado de los mensajes de cierre que ya no existen
     unset($current['lead_action_messages']);
