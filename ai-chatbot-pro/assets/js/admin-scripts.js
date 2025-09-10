@@ -114,7 +114,7 @@ jQuery(function($) {
                         $('tr[data-log-id="' + logId + '"]').fadeOut(300, function() { $(this).remove(); });
                     } else { alert('Error: ' + response.data.message); }
                 },
-                error: function() { $modalBody.html('<p>Error de conexión.</p>'); }
+                error: function() { alert('Error de conexión.'); }
             });
         });
     }
@@ -314,11 +314,14 @@ jQuery(function($) {
         $select.on('change', function() {
             const tmpl = templates.find(t => t.id === this.value);
             if (tmpl) {
+                // Rellenar campos de texto con los valores de la plantilla
                 promptFields.forEach(field => $(`#aicp_${field}`).val(tmpl[field] || ''));
+                // Rellenar respuestas rápidas
                 $quickReplies.each(function(index) {
                     $(this).val(tmpl.quick_replies[index] || '');
                 });
             } else {
+                // Limpiar campos si no hay plantilla seleccionada
                 promptFields.forEach(field => $(`#aicp_${field}`).val(''));
                 $quickReplies.val('');
             }
