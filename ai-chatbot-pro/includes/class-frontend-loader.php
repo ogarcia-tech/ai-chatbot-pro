@@ -92,8 +92,8 @@ class AICP_Frontend_Loader {
 
         // Obtener respuestas rápidas
         $quick_replies = [];
-        if (!empty($s['quick_replies'])) {
-            $quick_replies = array_filter(array_map('trim', explode("\n", $s['quick_replies'])));
+        if (!empty($s['quick_replies']) && is_array($s['quick_replies'])) {
+            $quick_replies = array_map('trim', $s['quick_replies']);
         }
 
 
