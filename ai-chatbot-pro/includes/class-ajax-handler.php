@@ -95,7 +95,7 @@ class AICP_Ajax_Handler {
         $system_prompt = AICP_Prompt_Builder::build($s, $page_context);
 
         
-        $short_term_memory = array_slice($history, -4);
+        $short_term_memory = array_slice($history, -10);
         $conversation = [['role' => 'system', 'content' => $system_prompt]];
         foreach ($short_term_memory as $item) { 
             if (isset($item['role'], $item['content'])) { 
