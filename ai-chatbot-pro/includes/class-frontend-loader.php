@@ -113,7 +113,7 @@ class AICP_Frontend_Loader {
             'user_avatar' => $user_avatar,
             'position' => $s['position'] ?? 'br',
 
-            'open_icon' => !empty($s['open_icon_url']) ? esc_url($s['open_icon_url']) : $default_bot_avatar,
+            'open_icon' => !empty($s['open_icon_url']) ? esc_url($s['open_icon_url']) : $default_open_icon,
 
             'quick_replies' => $quick_replies,
 
