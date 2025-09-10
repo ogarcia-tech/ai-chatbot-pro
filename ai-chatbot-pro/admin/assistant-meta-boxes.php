@@ -430,4 +430,9 @@ function aicp_render_pro_upsell() {
         <ul>
             <li><strong><?php _e('Entrenamiento Avanzado (RAG):', 'ai-chatbot-pro'); ?></strong> <?php _e('Entrena a tu bot con todo el contenido de tu web, PDFs y más para respuestas increíblemente precisas.', 'ai-chatbot-pro'); ?></li>
             <li><strong><?php _e('Analytics Mejoradas:', 'ai-chatbot-pro'); ?></strong> <?php _e('Accede a gráficas y métricas avanzadas para entender el rendimiento de tus asistentes.', 'ai-chatbot-pro'); ?></li>
-            <li><strong><?php
+            <li><strong><?php _e('Traspaso a Humano:', 'ai-chatbot-pro'); ?></strong> <?php _e('Permite a los usuarios solicitar asistencia directa por email.', 'ai-chatbot-pro'); ?></li>
+        </ul>
+        <a href="https://metricaweb.es" target="_blank" class="button button-primary"><?php _e('Conseguir AI Chatbot Pro', 'ai-chatbot-pro'); ?></a>
+    </div>
+    <?php
+}
