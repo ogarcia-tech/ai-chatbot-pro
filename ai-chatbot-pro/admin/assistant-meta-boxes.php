@@ -44,7 +44,7 @@ function aicp_admin_scripts($hook) {
         wp_register_script('aicp-templates', AICP_PLUGIN_URL . 'templates/templates.js', [], AICP_VERSION, true);
         wp_enqueue_script('aicp-templates');
         wp_enqueue_script('aicp-admin-script', AICP_PLUGIN_URL . 'assets/js/admin-scripts.js', ['jquery', 'wp-color-picker', 'aicp-templates'], AICP_VERSION, true);
-        
+
         $settings = get_post_meta($post->ID, '_aicp_assistant_settings', true);
         if (!is_array($settings)) $settings = [];
 
@@ -69,6 +69,7 @@ function aicp_admin_scripts($hook) {
             'default_bot_avatar' => $default_bot_avatar,
             'default_user_avatar' => $default_user_avatar,
             'default_open_icon' => $default_open_icon,
+            'templates_url' => AICP_PLUGIN_URL . 'assistant_templates.json',
             'initial_settings' => [
                 'bot_avatar_url' => $settings['bot_avatar_url'] ?? $default_bot_avatar,
                 'user_avatar_url' => $settings['user_avatar_url'] ?? $default_user_avatar,
@@ -79,6 +80,7 @@ function aicp_admin_scripts($hook) {
                 'color_bot_text' => $settings['color_bot_text'] ?? '#333333',
                 'color_user_bg' => $settings['color_user_bg'] ?? '#dcf8c6',
                 'color_user_text' => $settings['color_user_text'] ?? '#000000',
+                'template_id' => $settings['template_id'] ?? '',
             ],
             'meta' => $meta,
         ]);
@@ -129,6 +131,7 @@ function aicp_render_main_meta_box($post) {
 function aicp_render_instructions_tab($v) {
     ?>
     <table class="form-table">
+
         <tr>
             <th><label for="aicp_model"><?php _e('Modelo de IA', 'ai-chatbot-pro'); ?></label></th>
             <td>
@@ -142,6 +145,7 @@ function aicp_render_instructions_tab($v) {
                 </select>
             </td>
         </tr>
+
         <tr><th><label for="aicp_persona"><?php _e('Nombre y Personalidad', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[persona]" id="aicp_persona" rows="3" class="large-text"><?php echo esc_textarea($v['persona'] ?? 'Te llamas Ana, eres una asistente virtual experta en marketing digital.'); ?></textarea></td></tr>
         <tr><th><label for="aicp_objective"><?php _e('Objetivo Principal', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[objective]" id="aicp_objective" rows="2" class="large-text"><?php echo esc_textarea($v['objective'] ?? 'Mi objetivo es ayudar a los usuarios a encontrar la información que necesitan y animarles a contactar para obtener un presupuesto.'); ?></textarea></td></tr>
         <tr><th><label for="aicp_length_tone"><?php _e('Longitud y Tono', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[length_tone]" id="aicp_length_tone" rows="3" class="large-text"><?php echo esc_textarea($v['length_tone'] ?? 'Intenta ser lo más concisa posible, manteniendo un tono amable y profesional.'); ?></textarea></td></tr>
@@ -322,6 +326,7 @@ function aicp_save_meta_box_data($post_id) {
     $current['objective'] = isset($s['objective']) ? sanitize_textarea_field($s['objective']) : '';
     $current['length_tone'] = isset($s['length_tone']) ? sanitize_textarea_field($s['length_tone']) : '';
     $current['example'] = isset($s['example']) ? sanitize_textarea_field($s['example']) : '';
+    $current['template_id'] = isset($s['template_id']) ? sanitize_text_field($s['template_id']) : '';
 
     if (isset($s['quick_replies']) && is_array($s['quick_replies'])) {
         $current['quick_replies'] = array_map('sanitize_text_field', $s['quick_replies']);
