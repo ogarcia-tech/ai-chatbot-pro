@@ -401,8 +401,7 @@ function renderQuickReplies() {
             },
             success: (response) => {
                 if (response.success) {
-                    // Extraer y limpiar la respuesta del bot, eliminando bloques de JSON.
-                    const botReply = response.data.reply.replace(/```json[\s\S]*?```/g, '').trim();
+                    const botReply = response.data.reply;
                     logId = response.data.log_id;
                     const parts = splitLongMessage(botReply, 170);
                     parts.forEach(part => {
