@@ -154,14 +154,30 @@ jQuery(function($) {
     }
 
     function handleLeadQuestions() {
-        $('#aicp-add-question').on('click', function() {
-            const $wrapper = $('#aicp-lead-questions');
-            const field = '<div class="aicp-lead-question"><input type="text" name="aicp_settings[lead_form_questions][]" class="regular-text"> <button type="button" class="button aicp-remove-question">&times;</button></div>';
-            $wrapper.append(field);
+        $(document).on('click', '.aicp-add-lead-field', function(e) {
+            e.preventDefault();
+            const $tableBody = $('.aicp-lead-fields-table tbody');
+            const fieldId = 'field_' + Date.now();
+            const newRow = `
+                <tr>
+                    <td><input type="text" name="aicp_settings[lead_fields][${fieldId}][label]" value="" placeholder="Ej: Fecha de cita" class="widefat" /></td>
+                    <td><input type="text" name="aicp_settings[lead_fields][${fieldId}][name]" value="${fieldId}" readonly class="widefat" /></td>
+                    <td><select name="aicp_settings[lead_fields][${fieldId}][type]" class="widefat">
+                        <option value="text">Texto</option>
+                        <option value="email">Email</option>
+                        <option value="phone">Teléfono</option>
+                        <option value="date">Fecha</option>
+                    </select></td>
+                    <td><input type="checkbox" name="aicp_settings[lead_fields][${fieldId}][required]" value="1" /></td>
+                    <td><button type="button" class="button button-link-delete aicp-remove-lead-field">X</button></td>
+                </tr>
+            `;
+            $tableBody.append(newRow);
         });
 
-        $('#aicp-lead-questions').on('click', '.aicp-remove-question', function() {
-            $(this).closest('.aicp-lead-question').remove();
+        $(document).on('click', '.aicp-remove-lead-field', function(e) {
+            e.preventDefault();
+            $(this).closest('tr').remove();
         });
     }
 

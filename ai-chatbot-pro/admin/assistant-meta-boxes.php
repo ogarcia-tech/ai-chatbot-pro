@@ -16,7 +16,7 @@ function aicp_add_meta_boxes() {
         echo '<a href="#aicp-tab-instructions" class="nav-tab nav-tab-active">' . __('Instrucciones', 'ai-chatbot-pro') . '</a>';
         echo '<a href="#aicp-tab-design" class="nav-tab">' . __('Diseño', 'ai-chatbot-pro') . '</a>';
         echo '<a href="#aicp-tab-leads" class="nav-tab">' . __('Leads', 'ai-chatbot-pro') . '</a>';
-
+        
         // Lógica corregida para mostrar la pestaña PRO o el mensaje de venta.
         if (class_exists('AICP_Pro_Features')) {
             echo '<a href="#aicp-tab-pro" class="nav-tab">' . __('Funciones PRO', 'ai-chatbot-pro') . ' <span class="aicp-pro-tag">PRO</span></a>';
@@ -135,8 +135,8 @@ function aicp_render_main_meta_box($post) {
     <?php // Lógica corregida y limpia para mostrar el contenido PRO o el mensaje de venta.
     if (class_exists('AICP_Pro_Features')) : ?>
         <div id="aicp-tab-pro" class="aicp-tab-content" style="display:none;">
-            <?php
-            do_action('aicp_pro_tab_content');
+            <?php 
+            do_action('aicp_pro_tab_content'); 
             ?>
         </div>
     <?php else: ?>

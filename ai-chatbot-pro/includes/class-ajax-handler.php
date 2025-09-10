@@ -204,7 +204,7 @@ class AICP_Ajax_Handler {
             $conversation_text .= "$role: $content\n";
         }
 
-        $prompt = 'Extrae nombre, email y teléfono del siguiente chat y responde en formato JSON {"name":"","email":"","":"","phone":""}:\n' . $conversation_text;
+        $prompt = 'Extrae nombre, email y teléfono del siguiente chat y responde en formato JSON {"name":"","email":"","phone":""}:\n' . $conversation_text;
 
         $api_url = 'https://api.openai.com/v1/chat/completions';
         $api_args = [
