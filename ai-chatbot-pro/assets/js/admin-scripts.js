@@ -237,6 +237,26 @@ jQuery(function($) {
         const $select = $('#aicp_template_id');
         let templates = [];
 
+        // Nueva función para rellenar el formulario con los datos de una plantilla
+        const fillFormWithTemplate = (tmpl) => {
+            if (tmpl) {
+                $('#aicp_persona').val(tmpl.persona || '');
+                $('#aicp_objective').val(tmpl.objective || '');
+                $('#aicp_length_tone').val(tmpl.length_tone || '');
+                $('#aicp_example').val(tmpl.example || '');
+
+                $quickReplies.each(function(index) {
+                    $(this).val(tmpl.quick_replies[index] || '');
+                });
+
+                $('#aicp_edit_prompt_toggle').prop('checked', false);
+            } else {
+                promptFields.forEach(field => $(`#aicp_${field}`).val(''));
+                $quickReplies.val('');
+                $('#aicp_edit_prompt_toggle').prop('checked', false);
+            }
+        };
+
         function recompilePrompt() {
             const settings = {
                 template_id: $select.val(),
@@ -264,23 +284,20 @@ jQuery(function($) {
 
             $compiledPrompt.val(prompt);
         }
-
+        
         loadAssistantTemplates(aicp_admin_params.templates_url).then(function(data) {
             templates = data;
             templates.forEach(t => {
                 $select.append(`<option value="${t.id}">${t.label}</option>`);
             });
-
-            // Llenar campos al cargar la página si hay una plantilla inicial
+            
+            // Cargar estado inicial
             const selected = aicp_admin_params.initial_settings.template_id || '';
             $select.val(selected);
             if (selected) {
                  const tmpl = templates.find(t => t.id === selected);
                  if (tmpl) {
-                    promptFields.forEach(field => $(`#aicp_${field}`).val(aicp_admin_params.initial_settings[field] || tmpl[field] || ''));
-                    $quickReplies.each(function(index) {
-                        $(this).val(aicp_admin_params.initial_settings.quick_replies[index] || tmpl.quick_replies[index] || '');
-                    });
+                    fillFormWithTemplate(tmpl);
                  }
             }
             recompilePrompt();
@@ -288,22 +305,7 @@ jQuery(function($) {
             // Registrar los eventos de cambio e input una vez que los datos estén cargados
             $select.on('change', function() {
                 const tmpl = templates.find(t => t.id === this.value);
-                if (tmpl) {
-                    // Rellenar campos de texto
-                    $('#aicp_persona').val(tmpl.persona || '');
-                    $('#aicp_objective').val(tmpl.objective || '');
-                    $('#aicp_length_tone').val(tmpl.length_tone || '');
-                    $('#aicp_example').val(tmpl.example || '');
-
-                    // Rellenar respuestas rápidas
-                    $quickReplies.each(function(index) {
-                        $(this).val(tmpl.quick_replies[index] || '');
-                    });
-                } else {
-                    promptFields.forEach(field => $(`#aicp_${field}`).val(''));
-                    $quickReplies.val('');
-                }
-                $('#aicp_edit_prompt_toggle').prop('checked', false).trigger('change');
+                fillFormWithTemplate(tmpl);
                 recompilePrompt();
             });
 
