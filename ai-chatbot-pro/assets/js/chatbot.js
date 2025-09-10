@@ -86,6 +86,31 @@ jQuery(function($) {
         return parts;
     }
 
+    /**
+     * Obtiene contexto de la página actual para mejorar la respuesta del asistente.
+     * Prioriza un selector definido en params.context_selector y, si no existe,
+     * usa la etiqueta meta "description" como respaldo.
+     */
+    function getPageContext() {
+        let context = '';
+
+        if (params.context_selector) {
+            const el = document.querySelector(params.context_selector);
+            if (el) {
+                context = (el.textContent || '').trim();
+            }
+        }
+
+        if (!context) {
+            const meta = document.querySelector('meta[name="description"]');
+            if (meta && meta.content) {
+                context = meta.content.trim();
+            }
+        }
+
+        return context;
+    }
+
 
     // --- HTML y UI ---
     function buildChatHTML() {
@@ -361,11 +386,12 @@ function renderQuickReplies() {
             type: 'POST',
             data: { 
                 action: 'aicp_chat_request', 
-                nonce: params.nonce, 
-                assistant_id: params.assistant_id, 
-                history: conversationHistory, 
+                nonce: params.nonce,
+                assistant_id: params.assistant_id,
+                history: conversationHistory,
                 log_id: logId,
-                lead_data: leadData
+                lead_data: leadData,
+                page_context: getPageContext()
             },
             success: (response) => {
                 if (response.success) {
