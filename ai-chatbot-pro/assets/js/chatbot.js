@@ -68,6 +68,24 @@ jQuery(function($) {
         return patterns.some(p => p.test(text));
     }
 
+    function splitLongMessage(text, maxLength = 170) {
+        const parts = [];
+        let remaining = text;
+        while (remaining.length > maxLength) {
+            let chunk = remaining.slice(0, maxLength);
+            const lastSpace = chunk.lastIndexOf(' ');
+            if (lastSpace > -1) {
+                chunk = chunk.slice(0, lastSpace);
+            }
+            parts.push(chunk);
+            remaining = remaining.slice(chunk.length).trimStart();
+        }
+        if (remaining.length) {
+            parts.push(remaining);
+        }
+        return parts;
+    }
+
 
     // --- HTML y UI ---
     function buildChatHTML() {
@@ -101,16 +119,20 @@ jQuery(function($) {
         $('#aicp-capture-lead-btn').remove();
     }
 
+
 function renderQuickReplies() {
         const $container = $('.aicp-quick-replies');
+
         if (!params.quick_replies || params.quick_replies.length === 0) {
             $container.hide();
             return;
         }
         $container.empty();
         params.quick_replies.forEach(msg => {
+
             if(msg) {
                 const $button = $('<button class="aicp-quick-reply"></button>').text(msg);
+
                 $container.append($button);
             }
         });
@@ -157,9 +179,10 @@ function renderQuickReplies() {
                 ${feedbackButtons}
             </div>
         </div>`;
-        
-        $chatBody.append(messageHTML);
-        scrollToBottom();
+
+        const $msg = $(messageHTML);
+        $chatBody.append($msg);
+        scrollToMessage($msg);
 
         if (isFarewell(text)) {
             setTimeout(finalizeChat, 1000);
@@ -250,17 +273,19 @@ function renderQuickReplies() {
     function showThinkingIndicator() {
         if (isThinking) return;
         isThinking = true;
-        const thinkingHTML = `
-        <div class="aicp-chat-message bot aicp-bot-thinking">
+        const $msg = $(
+        `<div class="aicp-chat-message bot aicp-bot-thinking">
             <div class="aicp-message-avatar">
                 <img src="${params.bot_avatar}" alt="Avatar">
             </div>
             <div class="aicp-message-bubble">
                 <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
             </div>
-        </div>`;
-        $('.aicp-chat-body').append(thinkingHTML);
-        scrollToBottom();
+        </div>`
+        );
+        const $chatBody = $('.aicp-chat-body');
+        $chatBody.append($msg);
+        scrollToMessage($msg);
     }
 
     function removeThinkingIndicator() {
@@ -291,9 +316,10 @@ function renderQuickReplies() {
         });
     }
     
-    function scrollToBottom() {
+    function scrollToMessage($msg) {
         const $chatBody = $('.aicp-chat-body');
-        $chatBody.scrollTop($chatBody[0].scrollHeight);
+        const top = $msg.position().top + $chatBody.scrollTop();
+        $chatBody.scrollTop(top);
     }
 
     function sendMessage(message) {
@@ -345,9 +371,11 @@ function renderQuickReplies() {
                 if (response.success) {
                     const botReply = response.data.reply;
                     logId = response.data.log_id;
-                    conversationHistory.push({ role: 'assistant', content: botReply });
-
-                      addMessageToChat('bot', botReply);
+                    const parts = splitLongMessage(botReply, 170);
+                    parts.forEach(part => {
+                        conversationHistory.push({ role: 'assistant', content: part });
+                        addMessageToChat('bot', part);
+                    });
 
                     const leadStatus = response.data.lead_status;
                     const missing = response.data.missing_fields || [];
