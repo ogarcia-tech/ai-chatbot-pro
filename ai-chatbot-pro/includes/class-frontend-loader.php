@@ -89,10 +89,7 @@ class AICP_Frontend_Loader {
         }
 
         // Obtener mensajes sugeridos
-        $suggested_messages = [];
-        if (!empty($s['suggested_messages'])) {
-            $suggested_messages = array_filter(array_map('trim', explode("\n", $s['suggested_messages'])));
-        }
+        $quick_replies = array_filter(array_map('sanitize_text_field', $s['suggested_messages'] ?? []));
 
         // Obtener configuración de detección de leads
 
@@ -110,7 +107,7 @@ class AICP_Frontend_Loader {
             'user_avatar' => $user_avatar,
             'position' => $s['position'] ?? 'br',
             'open_icon' => !empty($s['open_icon_url']) ? esc_url($s['open_icon_url']) : $default_bot_avatar,
-            'suggested_messages' => $suggested_messages,
+            'quick_replies'     => $quick_replies,
             'lead_auto_collect'  => $lead_auto_collect,
 
 

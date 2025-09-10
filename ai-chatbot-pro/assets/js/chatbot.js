@@ -103,13 +103,13 @@ jQuery(function($) {
 
 function renderSuggestedReplies() {
         const $container = $('.aicp-suggested-replies');
-        if (!params.suggested_messages || params.suggested_messages.length === 0) {
+        if (!params.quick_replies || params.quick_replies.length === 0) {
             $container.hide();
             return;
         }
         $container.empty();
-        params.suggested_messages.forEach(msg => {
-            if(msg) {
+        params.quick_replies.forEach(msg => {
+            if (msg) {
                 const $button = $('<button class="aicp-suggested-reply"></button>').text(msg);
                 $container.append($button);
             }
