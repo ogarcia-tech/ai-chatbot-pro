@@ -30,7 +30,21 @@ function aicp_add_meta_boxes() {
     add_meta_box('aicp_shortcode_meta_box', __('Shortcode', 'ai-chatbot-pro'), 'aicp_render_shortcode_meta_box', 'aicp_assistant', 'side', 'high');
 }
 add_action('add_meta_boxes_aicp_assistant', 'aicp_add_meta_boxes');
+add_action('admin_footer', 'aicp_force_template_change_event');
 
+function aicp_force_template_change_event() {
+    global $post;
+    if ($post && $post->post_type === 'aicp_assistant') {
+        ?>
+        <script>
+            jQuery(document).ready(function($) {
+                // Forzar el evento 'change' en el selector de plantillas para que los campos se rellenen
+                $('#aicp_template_id').trigger('change');
+            });
+        </script>
+        <?php
+    }
+}
 /**
  * Carga los scripts y estilos necesarios para los meta boxes.
  */
