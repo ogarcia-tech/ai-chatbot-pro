@@ -250,26 +250,8 @@ jQuery(function($) {
             let prompt = '';
 
             if (template) {
-                prompt = template.system_prompt_template;
-                
-                for (const key in aicp_admin_params.meta) {
-                    const value = aicp_admin_params.meta[key];
-                    if (Array.isArray(value)) {
-                        prompt = prompt.replace(new RegExp(`{{${key}}}`,'g'), value.join(', '));
-                        for(const subKey in value) {
-                            prompt = prompt.replace(new RegExp(`{{${key}.${subKey}}}`,'g'), value[subKey]);
-                        }
-                    } else if (typeof value === 'object') {
-                        for(const subKey in value) {
-                            prompt = prompt.replace(new RegExp(`{{${key}.${subKey}}}`,'g'), value[subKey]);
-                        }
-                    } else {
-                         prompt = prompt.replace(new RegExp(`{{${key}}}`,'g'), value);
-                    }
-                }
-            }
+                prompt = renderTemplate(template.system_prompt_template, aicp_admin_params.meta);
 
-            if (template) {
                 if (settings.persona) prompt += `\n\nPERSONALIDAD: ${settings.persona}`;
                 if (settings.objective) prompt += `\n\nOBJETIVO PRINCIPAL: ${settings.objective}`;
                 if (settings.length_tone) prompt += `\n\nTONO Y LONGITUD: ${settings.length_tone}`;
@@ -282,14 +264,14 @@ jQuery(function($) {
 
             $compiledPrompt.val(prompt);
         }
-        
+
         loadAssistantTemplates(aicp_admin_params.templates_url).then(function(data) {
             templates = data;
             templates.forEach(t => {
                 $select.append(`<option value="${t.id}">${t.label}</option>`);
             });
-            
-            // Cargar estado inicial y actualizar campos
+
+            // Llenar campos al cargar la página si hay una plantilla inicial
             const selected = aicp_admin_params.initial_settings.template_id || '';
             $select.val(selected);
             if (selected) {
@@ -303,11 +285,17 @@ jQuery(function($) {
             }
             recompilePrompt();
             
-            // AHORA REGISTRAMOS LOS EVENTOS DENTRO DEL BLOQUE .then()
+            // Registrar los eventos de cambio e input una vez que los datos estén cargados
             $select.on('change', function() {
                 const tmpl = templates.find(t => t.id === this.value);
                 if (tmpl) {
-                    promptFields.forEach(field => $(`#aicp_${field}`).val(tmpl[field] || ''));
+                    // Rellenar campos de texto
+                    $('#aicp_persona').val(tmpl.persona || '');
+                    $('#aicp_objective').val(tmpl.objective || '');
+                    $('#aicp_length_tone').val(tmpl.length_tone || '');
+                    $('#aicp_example').val(tmpl.example || '');
+
+                    // Rellenar respuestas rápidas
                     $quickReplies.each(function(index) {
                         $(this).val(tmpl.quick_replies[index] || '');
                     });
