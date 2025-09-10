@@ -138,10 +138,13 @@ class AICP_OpenAI_Assistants_Manager {
         }
         
         $s = get_post_meta($assistant_id_wp, '_aicp_assistant_settings', true);
-         // --- INICIO DE LA MODIFICACIÓN DE INSTRUCCIONES ---
-        $persona = $s['persona'] ?? 'Eres un consultor experto de Suple.ai. Tu principal objetivo es entender las necesidades del cliente, explicar cómo Suple.ai puede ayudarle y animarle a agendar una llamada o demo para convertirlo en un lead.';
+        // --- INICIO DE LA MODIFICACIÓN DE INSTRUCCIONES ---
+        if (empty($s['persona'])) {
+            $s['persona'] = 'Eres un consultor experto de Suple.ai. Tu principal objetivo es entender las necesidades del cliente, explicar cómo Suple.ai puede ayudarle y animarle a agendar una llamada o demo para convertirlo en un lead.';
+        }
+        $base_prompt = AICP_Prompt_Builder::build($s);
         $behavior_rules = $s['behavior_rules'] ?? '';
-        
+
         // Si el usuario no ha personalizado las reglas, usamos unas nuevas reglas por defecto mucho más inteligentes.
         if (empty($behavior_rules)) {
             $behavior_rules = "1. **Directiva Principal:** Tu personalidad y objetivo principal (descritos arriba) mandan sobre todo lo demás. Siempre hablas como un consultor de la empresa y tu meta final es capturar un lead.\n\n";
@@ -153,7 +156,10 @@ class AICP_OpenAI_Assistants_Manager {
             $behavior_rules .= "   - Habla siempre en nombre de la empresa ('nosotros en Suple.ai...', 'podemos ayudarte a...').";
         }
 
-        $instructions = "== PERSONALIDAD Y OBJETIVO PRINCIPAL ==\n" . $persona . "\n\n== REGLAS DE COMPORTAMIENTO Y USO DE HERRAMIENTAS ==\n" . $behavior_rules;
+        $instructions = $base_prompt;
+        if (!empty($behavior_rules)) {
+            $instructions .= "\n\n== REGLAS DE COMPORTAMIENTO Y USO DE HERRAMIENTAS ==\n" . $behavior_rules;
+        }
         // --- FIN DE LA MODIFICACIÓN DE INSTRUCCIONES ---
         $assistant_config = [
             'model' => 'gpt-4o', 'name' => get_the_title($assistant_id_wp), 'instructions' => $instructions,
