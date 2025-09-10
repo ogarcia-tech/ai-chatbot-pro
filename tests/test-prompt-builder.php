@@ -41,4 +41,11 @@ $settings2 = [
 $prompt2 = AICP_Prompt_Builder::build($settings2);
 assert(str_contains($prompt2, 'Eres asistente de ACME para e-commerce'));
 
+// Test with custom prompt
+$settings3 = [
+    'custom_prompt' => 'USAR ESTE PROMPT',
+];
+$prompt3 = AICP_Prompt_Builder::build($settings3);
+assert($prompt3 === 'USAR ESTE PROMPT');
+
 echo "All tests passed\n";

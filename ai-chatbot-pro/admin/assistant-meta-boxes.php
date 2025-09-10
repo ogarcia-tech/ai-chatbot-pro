@@ -129,6 +129,10 @@ function aicp_render_main_meta_box($post) {
 }
 
 function aicp_render_instructions_tab($v) {
+    if (!class_exists('AICP_Prompt_Builder')) {
+        require_once AICP_PLUGIN_DIR . 'includes/class-prompt-builder.php';
+    }
+    $prompt = $v['custom_prompt'] ?? ($v['compiled_prompt'] ?? AICP_Prompt_Builder::build($v));
     ?>
     <table class="form-table">
 
@@ -151,6 +155,13 @@ function aicp_render_instructions_tab($v) {
         <tr><th><label for="aicp_length_tone"><?php _e('Longitud y Tono', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[length_tone]" id="aicp_length_tone" rows="3" class="large-text"><?php echo esc_textarea($v['length_tone'] ?? 'Intenta ser lo más concisa posible, manteniendo un tono amable y profesional.'); ?></textarea></td></tr>
         <tr><th><label for="aicp_example"><?php _e('Ejemplo de Respuesta', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[example]" id="aicp_example" rows="5" class="large-text"><?php echo esc_textarea($v['example'] ?? 'Si el cliente pregunta por el precio de una web, responde: "El precio de una web puede variar mucho, pero para darte una idea, nuestros proyectos suelen empezar en 1.500€. ¿Te gustaría que te preparásemos un presupuesto detallado sin compromiso?"'); ?></textarea></td></tr>
         <tr><th><label><?php _e('Respuestas Rápidas', 'ai-chatbot-pro'); ?></label></th><td><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][0] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Me interesa el servicio de SEO', 'ai-chatbot-pro'); ?>"><br><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][1] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Quiero una web económica', 'ai-chatbot-pro'); ?>"><br><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][2] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: ¿Podéis llamarme?', 'ai-chatbot-pro'); ?>"><p class="description"><?php _e('Estas respuestas aparecerán como botones clicables para el usuario.', 'ai-chatbot-pro'); ?></p></td></tr>
+        <tr>
+            <th><label for="aicp_custom_prompt"><?php _e('Prompt generado', 'ai-chatbot-pro'); ?></label></th>
+            <td>
+                <textarea name="aicp_settings[custom_prompt]" id="aicp_custom_prompt" rows="8" class="large-text" readonly><?php echo esc_textarea($prompt); ?></textarea>
+                <p><label><input type="checkbox" name="aicp_settings[use_custom_prompt]" id="aicp_edit_prompt_toggle" <?php checked(!empty($v['custom_prompt'])); ?>> <?php _e('Editar manualmente', 'ai-chatbot-pro'); ?></label></p>
+            </td>
+        </tr>
     </table>
     <?php
 }
@@ -306,6 +317,13 @@ function aicp_render_uploader($id, $value) { ?><div class="aicp-uploader-wrapper
 
 function aicp_render_shortcode_meta_box($post) { ?><p><?php _e('Usa este shortcode para mostrar el asistente.', 'ai-chatbot-pro'); ?></p><input type="text" readonly value="[ai_chatbot_pro id=&quot;<?php echo $post->ID; ?>&quot;]" class="widefat" onfocus="this.select();"><?php }
 
+function aicp_compile_prompt($settings) {
+    if (!class_exists('AICP_Prompt_Builder')) {
+        require_once AICP_PLUGIN_DIR . 'includes/class-prompt-builder.php';
+    }
+    return AICP_Prompt_Builder::build($settings);
+}
+
 function aicp_save_meta_box_data($post_id) {
     if (!isset($_POST['aicp_meta_box_nonce']) || !wp_verify_nonce($_POST['aicp_meta_box_nonce'], 'aicp_save_meta_box_data')) return;
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
@@ -332,6 +350,14 @@ function aicp_save_meta_box_data($post_id) {
         $current['quick_replies'] = array_map('sanitize_text_field', $s['quick_replies']);
 
     }
+
+    if (!empty($s['use_custom_prompt']) && isset($s['custom_prompt'])) {
+        $current['custom_prompt'] = sanitize_textarea_field($s['custom_prompt']);
+    } else {
+        unset($current['custom_prompt']);
+    }
+
+    $current['compiled_prompt'] = sanitize_textarea_field(aicp_compile_prompt($current));
 
     // Diseño
     $current['bot_avatar_url'] = isset($s['bot_avatar_url']) ? esc_url_raw($s['bot_avatar_url']) : '';
