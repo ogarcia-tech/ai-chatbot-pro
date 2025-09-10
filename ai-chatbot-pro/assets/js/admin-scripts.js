@@ -214,6 +214,33 @@ jQuery(function($) {
         $('#aicp_position').on('change', function() { $('#aicp-preview-chatbot-container').removeClass('position-br position-bl').addClass('position-' + $(this).val()); });
     }
 
+    function initTemplateSelector() {
+        if (typeof loadAssistantTemplates !== 'function') return;
+        loadAssistantTemplates(aicp_admin_params.templates_url).then(function(templates) {
+            const $select = $('#aicp_template_id');
+            templates.forEach(t => {
+                $select.append(`<option value="${t.id}">${t.label}</option>`);
+            });
+            const selected = aicp_admin_params.initial_settings.template_id || '';
+            if (selected) {
+                $select.val(selected);
+            }
+            $select.on('change', function() {
+                const tmpl = templates.find(t => t.id === this.value);
+                if (!tmpl) return;
+                $('#aicp_persona').val(tmpl.persona || '');
+                $('#aicp_objective').val(tmpl.objective || '');
+                $('#aicp_length_tone').val(tmpl.length_tone || '');
+                $('#aicp_example').val(tmpl.example || '');
+                if (Array.isArray(tmpl.quick_replies)) {
+                    $('input[name="aicp_settings[quick_replies][]"]').each(function(index) {
+                        $(this).val(tmpl.quick_replies[index] || '');
+                    });
+                }
+            });
+        });
+    }
+
     if ($('body').hasClass('post-type-aicp_assistant')) {
         handleTabs();
         handleMediaUploader();
@@ -222,6 +249,7 @@ jQuery(function($) {
         handleLeadQuestions();
         initLivePreview();
         handleDeleteLogFromList();
+        initTemplateSelector();
 
     }
 });
