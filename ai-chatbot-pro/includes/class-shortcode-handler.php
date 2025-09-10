@@ -74,7 +74,7 @@ class AICP_Shortcode_Handler {
             $user_avatar = get_avatar_url(get_current_user_id(), ['size' => 96]);
         }
         
-        $suggested_messages = array_filter($s['suggested_messages'] ?? []);
+        $quick_replies = array_filter(array_map('sanitize_text_field', $s['suggested_messages'] ?? []));
         
         wp_localize_script('aicp-chatbot-script', 'aicp_chatbot_params', [
             'ajax_url'           => admin_url('admin-ajax.php'),
@@ -86,7 +86,7 @@ class AICP_Shortcode_Handler {
             'user_avatar'        => $user_avatar,
             'open_icon'          => $open_icon,
             'position'           => $s['position'] ?? 'br',
-            'suggested_messages' => $suggested_messages,
+            'quick_replies'      => $quick_replies,
         ]);
     }
 

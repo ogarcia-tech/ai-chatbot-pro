@@ -41,7 +41,9 @@ function aicp_admin_scripts($hook) {
         wp_enqueue_style('wp-color-picker');
         wp_enqueue_style('aicp-admin-styles', AICP_PLUGIN_URL . 'assets/css/admin.css', [], AICP_VERSION);
         wp_enqueue_style('aicp-chatbot-preview-styles', AICP_PLUGIN_URL . 'assets/css/chatbot.css', [], AICP_VERSION);
-        wp_enqueue_script('aicp-admin-script', AICP_PLUGIN_URL . 'assets/js/admin-scripts.js', ['jquery', 'wp-color-picker'], AICP_VERSION, true);
+        wp_register_script('aicp-templates', AICP_PLUGIN_URL . 'templates/templates.js', [], AICP_VERSION, true);
+        wp_enqueue_script('aicp-templates');
+        wp_enqueue_script('aicp-admin-script', AICP_PLUGIN_URL . 'assets/js/admin-scripts.js', ['jquery', 'wp-color-picker', 'aicp-templates'], AICP_VERSION, true);
         
         $settings = get_post_meta($post->ID, '_aicp_assistant_settings', true);
         if (!is_array($settings)) $settings = [];
@@ -49,6 +51,14 @@ function aicp_admin_scripts($hook) {
         $default_bot_avatar  = AICP_PLUGIN_URL . 'assets/bot-default-avatar.png';
         $default_user_avatar = AICP_PLUGIN_URL . 'assets/user-default-avatar.png';
         $default_open_icon   = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>');
+
+        $meta = [
+            'brand' => sanitize_text_field(get_option('aicp_brand', '')),
+            'domain' => sanitize_text_field(get_option('aicp_domain', '')),
+            'services' => array_map('sanitize_text_field', (array) get_option('aicp_services', [])),
+            'pricing_ranges' => array_map('sanitize_text_field', (array) get_option('aicp_pricing_ranges', [])),
+            'timezone' => sanitize_text_field(wp_timezone_string()),
+        ];
 
         wp_localize_script('aicp-admin-script', 'aicp_admin_params', [
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -69,7 +79,8 @@ function aicp_admin_scripts($hook) {
                 'color_bot_text' => $settings['color_bot_text'] ?? '#333333',
                 'color_user_bg' => $settings['color_user_bg'] ?? '#dcf8c6',
                 'color_user_text' => $settings['color_user_text'] ?? '#000000',
-            ]
+            ],
+            'meta' => $meta,
         ]);
     }
 }
@@ -294,8 +305,8 @@ function aicp_save_meta_box_data($post_id) {
     $current['objective'] = isset($s['objective']) ? sanitize_textarea_field($s['objective']) : '';
     $current['length_tone'] = isset($s['length_tone']) ? sanitize_textarea_field($s['length_tone']) : '';
     $current['example'] = isset($s['example']) ? sanitize_textarea_field($s['example']) : '';
-    if (isset($s['suggested_messages']) && is_array($s['suggested_messages'])) { 
-        $current['suggested_messages'] = array_map('sanitize_text_field', $s['suggested_messages']); 
+    if (isset($s['suggested_messages']) && is_array($s['suggested_messages'])) {
+        $current['suggested_messages'] = array_filter(array_map('sanitize_text_field', $s['suggested_messages']));
     }
 
     // Diseño

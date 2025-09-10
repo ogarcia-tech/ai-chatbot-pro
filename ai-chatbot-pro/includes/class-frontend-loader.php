@@ -78,8 +78,9 @@ class AICP_Frontend_Loader {
         wp_enqueue_script('aicp-chatbot-script', AICP_PLUGIN_URL . 'assets/js/chatbot.js', ['jquery'], AICP_VERSION, true);
 
         // Lógica de avatares
-        $default_bot_avatar = AICP_PLUGIN_URL . 'assets/bot-default-avatar.png';
+        $default_bot_avatar  = AICP_PLUGIN_URL . 'assets/bot-default-avatar.png';
         $default_user_avatar = AICP_PLUGIN_URL . 'assets/user-default-avatar.png';
+        $default_open_icon   = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>');
 
         $bot_avatar = !empty($s['bot_avatar_url']) ? esc_url($s['bot_avatar_url']) : $default_bot_avatar;
         $user_avatar = !empty($s['user_avatar_url']) ? esc_url($s['user_avatar_url']) : $default_user_avatar;
@@ -89,10 +90,7 @@ class AICP_Frontend_Loader {
         }
 
         // Obtener mensajes sugeridos
-        $suggested_messages = [];
-        if (!empty($s['suggested_messages'])) {
-            $suggested_messages = array_filter(array_map('trim', explode("\n", $s['suggested_messages'])));
-        }
+        $quick_replies = array_filter(array_map('sanitize_text_field', $s['suggested_messages'] ?? []));
 
         // Obtener configuración de detección de leads
 
@@ -109,8 +107,10 @@ class AICP_Frontend_Loader {
             'bot_avatar' => $bot_avatar,
             'user_avatar' => $user_avatar,
             'position' => $s['position'] ?? 'br',
+
             'open_icon' => !empty($s['open_icon_url']) ? esc_url($s['open_icon_url']) : $default_bot_avatar,
-            'suggested_messages' => $suggested_messages,
+            'quick_replies'     => $quick_replies,
+
             'lead_auto_collect'  => $lead_auto_collect,
 
 

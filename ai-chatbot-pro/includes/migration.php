@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Migraciones del plugin.
  *
@@ -44,3 +45,4 @@ function aicp_run_migration_v1() {
 
 // Ejecutar migración en el hook init
 add_action('init', 'aicp_run_migration_v1');
+
