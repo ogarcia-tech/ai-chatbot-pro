@@ -119,7 +119,7 @@ class AICP_Ajax_Handler {
         $api_args = [
             'method'  => 'POST',
             'headers' => ['Content-Type'  => 'application/json', 'Authorization' => 'Bearer ' . $api_key],
-            'body'    => json_encode(['model' => $s['model'] ?? 'gpt-4o', 'messages' => $conversation]),
+            'body'    => wp_json_encode(['model' => $s['model'] ?? 'gpt-4o', 'messages' => $conversation]),
             'timeout' => 60,
         ];
         $response = wp_remote_post($api_url, $api_args);
