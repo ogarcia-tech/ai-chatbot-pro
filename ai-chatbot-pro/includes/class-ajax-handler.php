@@ -39,7 +39,7 @@ class AICP_Ajax_Handler {
             'assistant_id'     => $assistant_id,
             'session_id'       => $session_id,
             'timestamp'        => current_time('mysql'),
-            'conversation_log' => json_encode($conversation, JSON_UNESCAPED_UNICODE)
+            'conversation_log' => wp_json_encode($conversation, JSON_UNESCAPED_UNICODE)
         ];
         $format = ['%d', '%s', '%s', '%s'];
         
@@ -50,7 +50,7 @@ class AICP_Ajax_Handler {
 
         if (!empty($lead_data)) {
             $data['has_lead'] = 1;
-            $data['lead_data'] = json_encode($lead_data, JSON_UNESCAPED_UNICODE);
+            $data['lead_data'] = wp_json_encode($lead_data, JSON_UNESCAPED_UNICODE);
             $format[] = '%d';
             $format[] = '%s';
         }
@@ -119,7 +119,7 @@ class AICP_Ajax_Handler {
         $api_args = [
             'method'  => 'POST',
             'headers' => ['Content-Type'  => 'application/json', 'Authorization' => 'Bearer ' . $api_key],
-            'body'    => json_encode(['model' => $s['model'] ?? 'gpt-4o', 'messages' => $conversation]),
+            'body'    => wp_json_encode(['model' => $s['model'] ?? 'gpt-4o', 'messages' => $conversation]),
             'timeout' => 60,
         ];
         $response = wp_remote_post($api_url, $api_args);
