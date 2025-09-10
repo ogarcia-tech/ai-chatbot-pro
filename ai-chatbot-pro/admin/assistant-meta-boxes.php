@@ -41,7 +41,9 @@ function aicp_admin_scripts($hook) {
         wp_enqueue_style('wp-color-picker');
         wp_enqueue_style('aicp-admin-styles', AICP_PLUGIN_URL . 'assets/css/admin.css', [], AICP_VERSION);
         wp_enqueue_style('aicp-chatbot-preview-styles', AICP_PLUGIN_URL . 'assets/css/chatbot.css', [], AICP_VERSION);
-        wp_enqueue_script('aicp-admin-script', AICP_PLUGIN_URL . 'assets/js/admin-scripts.js', ['jquery', 'wp-color-picker'], AICP_VERSION, true);
+        wp_register_script('aicp-templates', AICP_PLUGIN_URL . 'templates/templates.js', [], AICP_VERSION, true);
+        wp_enqueue_script('aicp-templates');
+        wp_enqueue_script('aicp-admin-script', AICP_PLUGIN_URL . 'assets/js/admin-scripts.js', ['jquery', 'wp-color-picker', 'aicp-templates'], AICP_VERSION, true);
         
         $settings = get_post_meta($post->ID, '_aicp_assistant_settings', true);
         if (!is_array($settings)) $settings = [];
