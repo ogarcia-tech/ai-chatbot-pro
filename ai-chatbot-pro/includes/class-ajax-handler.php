@@ -92,20 +92,7 @@ class AICP_Ajax_Handler {
             wp_send_json_error(['message' => __('La API Key de OpenAI no está configurada.', 'ai-chatbot-pro')]); 
         }
         
-        $system_prompt_parts = [];
-        if (!empty($s['persona'])) $system_prompt_parts[] = "PERSONALIDAD: " . $s['persona'];
-        if (!empty($s['objective'])) $system_prompt_parts[] = "OBJETIVO PRINCIPAL: " . $s['objective'];
-        if (!empty($s['length_tone'])) $system_prompt_parts[] = "TONO Y LONGITUD: " . $s['length_tone'];
-        if (!empty($s['example'])) $system_prompt_parts[] = "EJEMPLO DE RESPUESTA: " . $s['example'];
-        
-        // Se añade el contexto de la página al prompt del sistema
-        if (!empty($page_context)) {
-            $system_prompt_parts[] = "--- INICIO DEL CONTEXTO DE LA PÁGINA ACTUAL ---\n" . $page_context . "\n--- FIN DEL CONTEXTO ---";
-            $system_prompt_parts[] = "Responde a las preguntas del usuario basándote en el contexto de la página proporcionado. Si la información no está en el contexto, indícalo amablemente.";
-        }
-
-        $system_prompt = implode("\n\n", $system_prompt_parts);
-        if(empty($system_prompt)) $system_prompt = 'Eres un asistente de IA.';
+        $system_prompt = AICP_Prompt_Builder::build($s, $page_context);
         
         $short_term_memory = array_slice($history, -4);
         $conversation = [['role' => 'system', 'content' => $system_prompt]];

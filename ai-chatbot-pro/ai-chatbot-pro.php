@@ -150,6 +150,8 @@ final class AI_Chatbot_Pro {
      */
     private function load_dependencies() {
         // Clases principales
+        require_once AICP_PLUGIN_DIR . 'includes/template-functions.php';
+        require_once AICP_PLUGIN_DIR . 'includes/class-prompt-builder.php';
         require_once AICP_PLUGIN_DIR . 'includes/class-installer.php';
         require_once AICP_PLUGIN_DIR . 'includes/class-shortcode-handler.php';
         require_once AICP_PLUGIN_DIR . 'includes/class-ajax-handler.php';
