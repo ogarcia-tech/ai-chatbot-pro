@@ -122,24 +122,24 @@ msgstr ""
 msgid "Ejemplo de Respuesta"
 msgstr ""
 
-#: ai-chatbot-pro/admin/assistant-meta-boxes.php:105
-msgid "Mensajes Sugeridos"
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:126
+msgid "Respuestas Rápidas"
 msgstr ""
 
-#: ai-chatbot-pro/admin/assistant-meta-boxes.php:105
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:126
 msgid "Ej: Me interesa el servicio de SEO"
 msgstr ""
 
-#: ai-chatbot-pro/admin/assistant-meta-boxes.php:105
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:126
 msgid "Ej: Quiero una web económica"
 msgstr ""
 
-#: ai-chatbot-pro/admin/assistant-meta-boxes.php:105
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:126
 msgid "Ej: ¿Podéis llamarme?"
 msgstr ""
 
-#: ai-chatbot-pro/admin/assistant-meta-boxes.php:105
-msgid "Estos mensajes aparecerán como botones clicables para el usuario."
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:126
+msgid "Estas respuestas aparecerán como botones clicables para el usuario."
 msgstr ""
 
 #: ai-chatbot-pro/admin/assistant-meta-boxes.php:107

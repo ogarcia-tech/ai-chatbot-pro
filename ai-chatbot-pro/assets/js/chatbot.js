@@ -83,7 +83,7 @@ jQuery(function($) {
                 <div class="aicp-header-title">${params.header_title}</div>
             </div>
             <div class="aicp-chat-body"></div>
-              <div class="aicp-suggested-replies"></div>
+              <div class="aicp-quick-replies"></div>
               <div class="aicp-chat-footer">
                 <form id="aicp-chat-form">
                     <input type="text" id="aicp-chat-input" placeholder="Escribe un mensaje..." autocomplete="off">
@@ -97,20 +97,20 @@ jQuery(function($) {
         </button>
         `;
         $('#aicp-chatbot-container').addClass(`position-${params.position}`).html(chatbotHTML);
-          renderSuggestedReplies();
+          renderQuickReplies();
         $('#aicp-capture-lead-btn').remove();
     }
 
-function renderSuggestedReplies() {
-        const $container = $('.aicp-suggested-replies');
-        if (!params.suggested_messages || params.suggested_messages.length === 0) {
+function renderQuickReplies() {
+        const $container = $('.aicp-quick-replies');
+        if (!params.quick_replies || params.quick_replies.length === 0) {
             $container.hide();
             return;
         }
         $container.empty();
-        params.suggested_messages.forEach(msg => {
+        params.quick_replies.forEach(msg => {
             if(msg) {
-                const $button = $('<button class="aicp-suggested-reply"></button>').text(msg);
+                const $button = $('<button class="aicp-quick-reply"></button>').text(msg);
                 $container.append($button);
             }
         });
@@ -306,7 +306,7 @@ function renderSuggestedReplies() {
 
         conversationHistory.push({ role: 'user', content: message });
         addMessageToChat('user', message);
-        $('.aicp-suggested-replies').slideUp();
+        $('.aicp-quick-replies').slideUp();
 
         if (isFarewell(message)) {
             return;
@@ -382,7 +382,7 @@ function renderSuggestedReplies() {
         }
     }
     
-    function handleSuggestedReplyClick() {
+    function handleQuickReplyClick() {
         const message = $(this).text();
         sendMessage(message);
     }
@@ -440,7 +440,7 @@ function renderSuggestedReplies() {
         buildChatHTML();
         $(document).on('click', '#aicp-chat-toggle-button', toggleChatWindow);
         $(document).on('submit', '#aicp-chat-form', handleFormSubmit);
-        $(document).on('click', '.aicp-suggested-reply', handleSuggestedReplyClick);
+        $(document).on('click', '.aicp-quick-reply', handleQuickReplyClick);
         $(document).on('click', '.aicp-feedback-btn', handleFeedbackClick);
         $(document).on('click', '.aicp-calendar-link', handleCalendarClick);
         
