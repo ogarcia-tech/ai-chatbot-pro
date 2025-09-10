@@ -50,6 +50,14 @@ function aicp_admin_scripts($hook) {
         $default_user_avatar = AICP_PLUGIN_URL . 'assets/user-default-avatar.png';
         $default_open_icon   = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>');
 
+        $meta = [
+            'brand' => sanitize_text_field(get_option('aicp_brand', '')),
+            'domain' => sanitize_text_field(get_option('aicp_domain', '')),
+            'services' => array_map('sanitize_text_field', (array) get_option('aicp_services', [])),
+            'pricing_ranges' => array_map('sanitize_text_field', (array) get_option('aicp_pricing_ranges', [])),
+            'timezone' => sanitize_text_field(wp_timezone_string()),
+        ];
+
         wp_localize_script('aicp-admin-script', 'aicp_admin_params', [
             'ajax_url' => admin_url('admin-ajax.php'),
             'assistant_id' => $post->ID,
@@ -69,7 +77,8 @@ function aicp_admin_scripts($hook) {
                 'color_bot_text' => $settings['color_bot_text'] ?? '#333333',
                 'color_user_bg' => $settings['color_user_bg'] ?? '#dcf8c6',
                 'color_user_text' => $settings['color_user_text'] ?? '#000000',
-            ]
+            ],
+            'meta' => $meta,
         ]);
     }
 }
