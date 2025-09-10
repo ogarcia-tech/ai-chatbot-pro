@@ -116,10 +116,14 @@ class AICP_Ajax_Handler {
         }
         
         $api_url = 'https://api.openai.com/v1/chat/completions';
+        $model = $s['model'] ?? array_key_first(AICP_AVAILABLE_MODELS);
+        if (!isset(AICP_AVAILABLE_MODELS[$model])) {
+            $model = array_key_first(AICP_AVAILABLE_MODELS);
+        }
         $api_args = [
             'method'  => 'POST',
             'headers' => ['Content-Type'  => 'application/json', 'Authorization' => 'Bearer ' . $api_key],
-            'body'    => wp_json_encode(['model' => $s['model'] ?? 'gpt-4o', 'messages' => $conversation]),
+            'body'    => wp_json_encode(['model' => $model, 'messages' => $conversation]),
             'timeout' => 60,
         ];
         $response = wp_remote_post($api_url, $api_args);

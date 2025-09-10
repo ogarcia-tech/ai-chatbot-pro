@@ -129,7 +129,19 @@ function aicp_render_main_meta_box($post) {
 function aicp_render_instructions_tab($v) {
     ?>
     <table class="form-table">
-        <tr><th><label for="aicp_model"><?php _e('Modelo de IA', 'ai-chatbot-pro'); ?></label></th><td><select name="aicp_settings[model]" id="aicp_model" class="regular-text"><option value="gpt-4o" <?php selected($v['model'] ?? 'gpt-4o', 'gpt-4o'); ?>>GPT-4o</option><option value="gpt-4-turbo-preview" <?php selected($v['model'] ?? '', 'gpt-4-turbo-preview'); ?>>GPT-4 Turbo</option></select></td></tr>
+        <tr>
+            <th><label for="aicp_model"><?php _e('Modelo de IA', 'ai-chatbot-pro'); ?></label></th>
+            <td>
+                <select name="aicp_settings[model]" id="aicp_model" class="regular-text">
+                    <?php
+                    $model = isset($v['model']) && isset(AICP_AVAILABLE_MODELS[$v['model']]) ? $v['model'] : array_key_first(AICP_AVAILABLE_MODELS);
+                    foreach (AICP_AVAILABLE_MODELS as $value => $label) {
+                        printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($model, $value, false), esc_html($label));
+                    }
+                    ?>
+                </select>
+            </td>
+        </tr>
         <tr><th><label for="aicp_persona"><?php _e('Nombre y Personalidad', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[persona]" id="aicp_persona" rows="3" class="large-text"><?php echo esc_textarea($v['persona'] ?? 'Te llamas Ana, eres una asistente virtual experta en marketing digital.'); ?></textarea></td></tr>
         <tr><th><label for="aicp_objective"><?php _e('Objetivo Principal', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[objective]" id="aicp_objective" rows="2" class="large-text"><?php echo esc_textarea($v['objective'] ?? 'Mi objetivo es ayudar a los usuarios a encontrar la información que necesitan y animarles a contactar para obtener un presupuesto.'); ?></textarea></td></tr>
         <tr><th><label for="aicp_length_tone"><?php _e('Longitud y Tono', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[length_tone]" id="aicp_length_tone" rows="3" class="large-text"><?php echo esc_textarea($v['length_tone'] ?? 'Intenta ser lo más concisa posible, manteniendo un tono amable y profesional.'); ?></textarea></td></tr>
@@ -300,7 +312,12 @@ function aicp_save_meta_box_data($post_id) {
     if (!is_array($current)) $current = [];
 
     // Instrucciones
-    $current['model'] = isset($s['model']) ? sanitize_text_field($s['model']) : 'gpt-4o';
+    if (isset($s['model'])) {
+        $model = sanitize_text_field($s['model']);
+        $current['model'] = array_key_exists($model, AICP_AVAILABLE_MODELS) ? $model : array_key_first(AICP_AVAILABLE_MODELS);
+    } else {
+        $current['model'] = array_key_first(AICP_AVAILABLE_MODELS);
+    }
     $current['persona'] = isset($s['persona']) ? sanitize_textarea_field($s['persona']) : '';
     $current['objective'] = isset($s['objective']) ? sanitize_textarea_field($s['objective']) : '';
     $current['length_tone'] = isset($s['length_tone']) ? sanitize_textarea_field($s['length_tone']) : '';

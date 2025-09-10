@@ -147,8 +147,11 @@ final class AI_Chatbot_Pro {
     
     /**
      * Cargar dependencias del plugin
-     */
+    */
     private function load_dependencies() {
+        // Lista de modelos disponibles
+        require_once AICP_PLUGIN_DIR . 'includes/model-list.php';
+
         // Clases principales
         require_once AICP_PLUGIN_DIR . 'includes/class-installer.php';
         require_once AICP_PLUGIN_DIR . 'includes/class-shortcode-handler.php';
