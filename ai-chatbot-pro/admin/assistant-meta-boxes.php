@@ -149,13 +149,13 @@ function aicp_render_instructions_tab($v) {
                 </select>
             </td>
         </tr>
-
         <tr>
             <th><label for="aicp_template_id"><?php _e('Plantilla', 'ai-chatbot-pro'); ?></label></th>
             <td>
                 <select name="aicp_settings[template_id]" id="aicp_template_id">
                     <option value=""><?php _e('Selecciona una plantilla', 'ai-chatbot-pro'); ?></option>
                 </select>
+                <p class="description"><?php _e('Al seleccionar una plantilla, los campos de abajo se rellenarán automáticamente con un contenido base que puedes personalizar. Si la editas, tu versión personalizada se guardará.', 'ai-chatbot-pro'); ?></p>
             </td>
         </tr>
 

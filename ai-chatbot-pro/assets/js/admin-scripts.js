@@ -239,19 +239,96 @@ jQuery(function($) {
             if (selected) {
                 $select.val(selected);
             }
+
+            const promptFields = ['persona', 'objective', 'length_tone', 'example'];
+            const $quickReplies = $('input[name="aicp_settings[quick_replies][]"]');
+            const $compiledPrompt = $('#aicp_custom_prompt');
+
+            function updatePromptFields(tmpl) {
+                promptFields.forEach(field => {
+                    $(`#aicp_${field}`).val(tmpl[field] || '');
+                });
+                $quickReplies.each(function(index) {
+                    $(this).val(tmpl.quick_replies[index] || '');
+                });
+            }
+
+            function recompilePrompt() {
+                const settings = {
+                    template_id: $select.val(),
+                    persona: $('#aicp_persona').val(),
+                    objective: $('#aicp_objective').val(),
+                    length_tone: $('#aicp_length_tone').val(),
+                    example: $('#aicp_example').val()
+                };
+
+                const template = templates.find(t => t.id === settings.template_id);
+                if (template) {
+                    let prompt = template.system_prompt_template;
+                    
+                    // Render placeholders
+                    for (const key in aicp_admin_params.meta) {
+                        let placeholder = `{{${key}}}`;
+                        if (Array.isArray(aicp_admin_params.meta[key])) {
+                            // Handle array placeholders, e.g. {{services}}
+                            placeholder = `{{${key}}}`;
+                            prompt = prompt.replace(new RegExp(placeholder, 'g'), aicp_admin_params.meta[key].join(', '));
+                            
+                            // Handle object placeholders, e.g. {{pricing_ranges.web}}
+                            for(const subKey in aicp_admin_params.meta[key]) {
+                                const subPlaceholder = `{{${key}.${subKey}}}`;
+                                prompt = prompt.replace(new RegExp(subPlaceholder, 'g'), aicp_admin_params.meta[key][subKey]);
+                            }
+
+                        } else {
+                            prompt = prompt.replace(new RegExp(`{{${key}}}`,'g'), aicp_admin_params.meta[key]);
+                        }
+                    }
+
+                    if (settings.persona) prompt += `\n\nPERSONALIDAD: ${settings.persona}`;
+                    if (settings.objective) prompt += `\n\nOBJETIVO PRINCIPAL: ${settings.objective}`;
+                    if (settings.length_tone) prompt += `\n\nTONO Y LONGITUD: ${settings.length_tone}`;
+                    if (settings.example) prompt += `\n\nEJEMPLO DE RESPUESTA: ${settings.example}`;
+                    
+                    $compiledPrompt.val(prompt);
+                }
+            }
+
+            // Bind events
             $select.on('change', function() {
                 const tmpl = templates.find(t => t.id === this.value);
-                if (!tmpl) return;
-                $('#aicp_persona').val(tmpl.persona || '');
-                $('#aicp_objective').val(tmpl.objective || '');
-                $('#aicp_length_tone').val(tmpl.length_tone || '');
-                $('#aicp_example').val(tmpl.example || '');
-                if (Array.isArray(tmpl.quick_replies)) {
-                    $('input[name="aicp_settings[quick_replies][]"]').each(function(index) {
-                        $(this).val(tmpl.quick_replies[index] || '');
-                    });
+                if (!tmpl) {
+                    promptFields.forEach(field => $(`#aicp_${field}`).val(''));
+                    $quickReplies.val('');
+                } else {
+                    updatePromptFields(tmpl);
+                }
+                $('#aicp_edit_prompt_toggle').prop('checked', false).trigger('change');
+                recompilePrompt();
+            });
+
+            promptFields.forEach(field => {
+                $(`#aicp_${field}`).on('input', recompilePrompt);
+            });
+
+            $('#aicp_edit_prompt_toggle').on('change', function() {
+                if (this.checked) {
+                    // Set custom prompt value to the compiled one
+                    recompilePrompt();
+                } else {
+                    // Revert to compiled prompt
+                    recompilePrompt();
                 }
             });
+
+            // Initial load
+            if (selected) {
+                const tmpl = templates.find(t => t.id === selected);
+                if (tmpl) {
+                    updatePromptFields(tmpl);
+                    recompilePrompt();
+                }
+            }
         });
     }
 
