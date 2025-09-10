@@ -413,3 +413,4 @@ function aicp_render_pro_upsell() {
     </div>
     <?php
 }
+}

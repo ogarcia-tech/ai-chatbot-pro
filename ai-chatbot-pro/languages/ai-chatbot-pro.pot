@@ -439,3 +439,12 @@ msgstr ""
 #: ai-chatbot-pro/admin/analytics-page.php:60
 msgid "Leads por Calendario"
 msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:126
+msgid "Respuestas Rápidas"
+msgstr ""
+
+#: ai-chatbot-pro/admin/assistant-meta-boxes.php:126
+msgid "Estas respuestas aparecerán como botones clicables para el usuario."
+msgstr ""
+

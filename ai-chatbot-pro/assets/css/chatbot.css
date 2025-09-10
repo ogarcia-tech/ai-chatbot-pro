@@ -40,6 +40,12 @@
 #aicp-chatbot-container.position-bl #aicp-chat-window { left: 0; }
 #aicp-chat-window.active { opacity: 1; transform: translateY(0); visibility: visible; }
 
+
+/* Mensajes Sugeridos */
+.aicp-quick-replies { padding: 0 15px 10px; flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.aicp-quick-reply { background-color: #fff; border: 1px solid #ccc; border-radius: 20px; padding: 6px 12px; font-size: 0.85em; cursor: pointer; transition: background-color 0.2s; }
+.aicp-quick-reply:hover { background-color: #e9e9e9; }
+
 /* Cabecera */
 .aicp-chat-header {
     background: var(--aicp-color-primary); color: white; padding: 10px 15px; display: flex; align-items: center; gap: 12px;

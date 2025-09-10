@@ -22,14 +22,14 @@ class AICP_Shortcode_Handler {
      */
     public static function register_chatbot($atts) {
         if (self::$is_initialized) {
-            return '<!-- AI Chatbot Pro: Ya cargado en esta página. -->';
+            return '';
         }
 
         $atts = shortcode_atts(['id' => 0], $atts, 'ai_chatbot_pro');
         $assistant_id = absint($atts['id']);
 
         if (!$assistant_id || get_post_type($assistant_id) !== 'aicp_assistant') {
-            return '<!-- AI Chatbot Pro: ID de asistente no válido. -->';
+            return '';
         }
 
         self::$assistant_id_to_render = $assistant_id;
