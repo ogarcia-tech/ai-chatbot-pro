@@ -16,7 +16,7 @@ function aicp_add_meta_boxes() {
         echo '<a href="#aicp-tab-instructions" class="nav-tab nav-tab-active">' . __('Instrucciones', 'ai-chatbot-pro') . '</a>';
         echo '<a href="#aicp-tab-design" class="nav-tab">' . __('Diseño', 'ai-chatbot-pro') . '</a>';
         echo '<a href="#aicp-tab-leads" class="nav-tab">' . __('Leads', 'ai-chatbot-pro') . '</a>';
-        
+
         // Lógica corregida para mostrar la pestaña PRO o el mensaje de venta.
         if (class_exists('AICP_Pro_Features')) {
             echo '<a href="#aicp-tab-pro" class="nav-tab">' . __('Funciones PRO', 'ai-chatbot-pro') . ' <span class="aicp-pro-tag">PRO</span></a>';
@@ -178,15 +178,19 @@ function aicp_render_instructions_tab($v) {
             </td>
         </tr>
 
-        <tr><th><label for="aicp_persona"><?php _e('Nombre y Personalidad', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[persona]" id="aicp_persona" rows="3" class="large-text"><?php echo esc_textarea($v['persona'] ?? ''); ?></textarea></td></tr>
-        <tr><th><label for="aicp_objective"><?php _e('Objetivo Principal', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[objective]" id="aicp_objective" rows="2" class="large-text"><?php echo esc_textarea($v['objective'] ?? ''); ?></textarea></td></tr>
-        <tr><th><label for="aicp_length_tone"><?php _e('Longitud y Tono', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[length_tone]" id="aicp_length_tone" rows="3" class="large-text"><?php echo esc_textarea($v['length_tone'] ?? ''); ?></textarea></td></tr>
-        <tr><th><label for="aicp_example"><?php _e('Ejemplo de Respuesta', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[example]" id="aicp_example" rows="5" class="large-text"><?php echo esc_textarea($v['example'] ?? ''); ?></textarea></td></tr>
-        <tr><th><label><?php _e('Respuestas Rápidas', 'ai-chatbot-pro'); ?></label></th><td><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][0] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Me interesa el servicio de SEO', 'ai-chatbot-pro'); ?>"><br><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][1] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Quiero una web económica', 'ai-chatbot-pro'); ?>"><br><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][2] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: ¿Podéis llamarme?', 'ai-chatbot-pro'); ?>"><p class="description"><?php _e('Estas respuestas aparecerán como botones clicables para el usuario.', 'ai-chatbot-pro'); ?></p></td></tr>
+        <tr>
+            <th><label><?php _e('Respuestas Rápidas', 'ai-chatbot-pro'); ?></label></th>
+            <td>
+                <input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][0] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Me interesa el servicio de SEO', 'ai-chatbot-pro'); ?>"><br>
+                <input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][1] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Quiero una web económica', 'ai-chatbot-pro'); ?>"><br>
+                <input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][2] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: ¿Podéis llamarme?', 'ai-chatbot-pro'); ?>"><br>
+                <p class="description"><?php _e('Estas respuestas aparecerán como botones clicables para el usuario.', 'ai-chatbot-pro'); ?></p>
+            </td>
+        </tr>
         <tr>
             <th><label for="aicp_custom_prompt"><?php _e('Prompt generado', 'ai-chatbot-pro'); ?></label></th>
             <td>
-                <textarea name="aicp_settings[custom_prompt]" id="aicp_custom_prompt" rows="8" class="large-text" readonly><?php echo esc_textarea($prompt); ?></textarea>
+                <textarea name="aicp_settings[custom_prompt]" id="aicp_custom_prompt" rows="15" class="large-text" readonly><?php echo esc_textarea($prompt); ?></textarea>
                 <p><label><input type="checkbox" name="aicp_settings[use_custom_prompt]" id="aicp_edit_prompt_toggle" <?php checked(!empty($v['custom_prompt'])); ?>> <?php _e('Editar manualmente', 'ai-chatbot-pro'); ?></label></p>
             </td>
         </tr>
@@ -402,7 +406,7 @@ function aicp_save_meta_box_data($post_id) {
     $current['lead_auto_collect'] = !empty($s['lead_auto_collect']) ? 1 : 0;
     $current['lead_email']        = isset($s['lead_email']) ? sanitize_email($s['lead_email']) : '';
     $current['webhook_url']       = isset($s['webhook_url']) ? esc_url_raw($s['webhook_url']) : '';
-  
+
 
     // Se elimina el guardado de los mensajes de cierre que ya no existen
     unset($current['lead_action_messages']);
@@ -412,7 +416,7 @@ function aicp_save_meta_box_data($post_id) {
     }
     // Los campos PRO se guardan vacíos en la versión gratuita
     $current['training_post_types'] = [];
-    
+
     update_post_meta($post_id, '_aicp_assistant_settings', $current);
 }
 add_action('save_post_aicp_assistant', 'aicp_save_meta_box_data');
@@ -426,9 +430,4 @@ function aicp_render_pro_upsell() {
         <ul>
             <li><strong><?php _e('Entrenamiento Avanzado (RAG):', 'ai-chatbot-pro'); ?></strong> <?php _e('Entrena a tu bot con todo el contenido de tu web, PDFs y más para respuestas increíblemente precisas.', 'ai-chatbot-pro'); ?></li>
             <li><strong><?php _e('Analytics Mejoradas:', 'ai-chatbot-pro'); ?></strong> <?php _e('Accede a gráficas y métricas avanzadas para entender el rendimiento de tus asistentes.', 'ai-chatbot-pro'); ?></li>
-            <li><strong><?php _e('Traspaso a Humano:', 'ai-chatbot-pro'); ?></strong> <?php _e('Permite a los usuarios solicitar asistencia directa por email.', 'ai-chatbot-pro'); ?></li>
-        </ul>
-        <a href="https://metricaweb.es" target="_blank" class="button button-primary"><?php _e('Conseguir AI Chatbot Pro', 'ai-chatbot-pro'); ?></a>
-    </div>
-    <?php
-}
+            <li><strong><?php
