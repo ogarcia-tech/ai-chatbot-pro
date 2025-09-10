@@ -43,9 +43,10 @@ class AICP_Training_Handler {
                 // Usamos el objeto $post directamente para mayor estabilidad en AJAX
                 $content = wp_strip_all_tags($post->post_content);
                 $content = preg_replace('/\s+/', ' ', $content); // Reemplazar múltiples espacios/saltos de línea con uno solo
-                
+
                 $context .= "Título: " . esc_html($post->post_title) . "\nContenido: " . $content . "\n\n---\n\n";
             }
+            wp_reset_postdata();
         }
         
         // Limitar la longitud total del contexto para no exceder los límites del prompt
