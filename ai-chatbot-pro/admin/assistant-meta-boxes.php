@@ -262,6 +262,7 @@ function aicp_render_leads_tab($assistant_id, $v) {
     $auto_collect = !empty($v['lead_auto_collect']);
     $lead_email   = $v['lead_email'] ?? '';
     $webhook      = esc_url($v['webhook_url'] ?? '');
+    $calendar_url = esc_url($v['calendar_url'] ?? '');
     
     // Nuevo campo para los campos de lead dinámicos
     $lead_fields = isset($v['lead_fields']) && is_array($v['lead_fields']) ? $v['lead_fields'] : [];
@@ -271,6 +272,7 @@ function aicp_render_leads_tab($assistant_id, $v) {
     echo '<tr><th><label>' . __('Captura Automática', 'ai-chatbot-pro') . '</label></th><td><label><input type="checkbox" name="aicp_settings[lead_auto_collect]" value="1" ' . checked($auto_collect, true, false) . '> ' . __('Solicitar datos de contacto automáticamente', 'ai-chatbot-pro') . '</label></td></tr>';
     echo '<tr><th><label for="aicp_lead_email">' . __('Email de notificación', 'ai-chatbot-pro') . '</label></th><td><input type="email" id="aicp_lead_email" name="aicp_settings[lead_email]" value="' . esc_attr($lead_email) . '" class="regular-text" /><br /><span class="description">' . sprintf(__('Si se deja vacío, se usará %s.', 'ai-chatbot-pro'), esc_html(get_option('admin_email'))) . '</span></td></tr>';
     echo '<tr><th><label for="aicp_webhook_url">' . __('Webhook URL', 'ai-chatbot-pro') . '</label></th><td><input type="url" name="aicp_settings[webhook_url]" id="aicp_webhook_url" value="' . esc_attr($webhook) . '" class="regular-text" placeholder="https://example.com/webhook" /></td></tr>';
+    echo '<tr><th><label for="aicp_calendar_url">' . __('URL del Calendario para Reservar Cita', 'ai-chatbot-pro') . '</label></th><td><input type="url" name="aicp_settings[calendar_url]" id="aicp_calendar_url" value="' . esc_attr($calendar_url) . '" class="regular-text" placeholder="https://example.com/agenda" /><br /><span class="description">' . __('Si se configura, el asistente mostrará un botón para reservar una cita cuando detecte intención de agendar.', 'ai-chatbot-pro') . '</span></td></tr>';
     echo '</tbody></table>';
 
     // Sección para campos de lead dinámicos
@@ -443,6 +445,7 @@ function aicp_save_meta_box_data($post_id) {
     $current['lead_auto_collect'] = !empty($s['lead_auto_collect']) ? 1 : 0;
     $current['lead_email']        = isset($s['lead_email']) ? sanitize_email($s['lead_email']) : '';
     $current['webhook_url']       = isset($s['webhook_url']) ? esc_url_raw($s['webhook_url']) : '';
+    $current['calendar_url']      = isset($s['calendar_url']) ? esc_url_raw($s['calendar_url']) : '';
 
     // Guardar los nuevos campos de lead dinámicos
     $current['lead_fields'] = [];

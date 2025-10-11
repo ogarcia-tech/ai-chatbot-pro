@@ -26,6 +26,9 @@ jQuery(function($) {
     let userMessageCount = 0;
     let leadButtonsShown = false;
     let inactivityTimer = null;
+    let autoOpenTimeout = null;
+    let autoCloseTimeout = null;
+    let hasUserInteracted = false;
 
     const farewellPatterns = [
         /ad[ií]os/i,
@@ -48,6 +51,7 @@ jQuery(function($) {
     const leadButtonThreshold = 3;
 
     function resetInactivityTimer() {
+        if (isChatEnded) return;
         clearTimeout(inactivityTimer);
         inactivityTimer = setTimeout(finalizeChat, 45000);
     }
@@ -169,16 +173,85 @@ function renderQuickReplies() {
         });
     }
 
-    function toggleChatWindow() {
-        isChatOpen = !isChatOpen;
-        $('#aicp-chat-window, #aicp-chat-toggle-button').toggleClass('active');
-        if (isChatOpen) $('#aicp-chat-input').focus();
+    function clearAutoOpenTimeout() {
+        if (autoOpenTimeout) {
+            clearTimeout(autoOpenTimeout);
+            autoOpenTimeout = null;
+        }
     }
-    
+
+    function clearAutoCloseTimeout() {
+        if (autoCloseTimeout) {
+            clearTimeout(autoCloseTimeout);
+            autoCloseTimeout = null;
+        }
+    }
+
+    function markUserInteraction() {
+        if (hasUserInteracted) return;
+        hasUserInteracted = true;
+        clearAutoOpenTimeout();
+        clearAutoCloseTimeout();
+    }
+
+    function openChatWindow(isAuto = false) {
+        if (isChatOpen) return;
+        isChatOpen = true;
+        $('#aicp-chat-window, #aicp-chat-toggle-button').addClass('active');
+        clearAutoOpenTimeout();
+        if (!isAuto) {
+            markUserInteraction();
+        }
+        $('#aicp-chat-input').focus();
+    }
+
+    function closeChatWindow(isAuto = false) {
+        if (!isChatOpen) return;
+        isChatOpen = false;
+        $('#aicp-chat-window, #aicp-chat-toggle-button').removeClass('active');
+        if (!isAuto) {
+            markUserInteraction();
+        }
+    }
+
+    function toggleChatWindow(event) {
+        if (event) event.preventDefault();
+        if (isChatOpen) {
+            closeChatWindow();
+        } else {
+            openChatWindow();
+        }
+    }
+
+    function scheduleAutoOpen() {
+        if (!params.auto_open || !params.auto_open.enabled) return;
+
+        const delay = Math.max(0, parseInt(params.auto_open.delay, 10) || 0);
+        const duration = Math.max(0, parseInt(params.auto_open.duration, 10) || 0);
+
+        clearAutoOpenTimeout();
+        clearAutoCloseTimeout();
+
+        autoOpenTimeout = setTimeout(() => {
+            if (hasUserInteracted || isChatOpen) return;
+            openChatWindow(true);
+
+            if (duration > 0) {
+                clearAutoCloseTimeout();
+                autoCloseTimeout = setTimeout(() => {
+                    if (!hasUserInteracted && isChatOpen) {
+                        closeChatWindow(true);
+                    }
+                }, duration * 1000);
+            }
+        }, delay * 1000);
+    }
+
     function addMessageToChat(role, text, isCalendarMessage = false) {
         resetInactivityTimer();
         const $chatBody = $('.aicp-chat-body');
-        let sanitizedText = $('<div/>').text(text).html().replace(/\n/g, '<br>');
+        const messageText = text == null ? '' : String(text);
+        let sanitizedText = $('<div/>').text(messageText).html().replace(/\n/g, '<br>');
         
         if (isCalendarMessage && params.calendar_url) {
             sanitizedText += `<br><br><a href="${params.calendar_url}" class="aicp-calendar-link" data-log-id="${logId}" data-assistant-id="${params.assistant_id}" data-calendar-nonce="${params.calendar_nonce}" target="_blank">📅 Reservar cita</a>`;
@@ -362,6 +435,7 @@ function renderQuickReplies() {
         const leadDetected = detectLeadData(message);
 
         conversationHistory.push({ role: 'user', content: message });
+        markUserInteraction();
         addMessageToChat('user', message);
         $('.aicp-quick-replies').slideUp();
 
@@ -420,7 +494,8 @@ function renderQuickReplies() {
                         });
                     }
                 } else {
-                    addMessageToChat('bot', `Error: ${response.data.message}`);
+                    const errorMessage = response && response.data && response.data.message ? response.data.message : 'No se pudo procesar la solicitud en este momento.';
+                    addMessageToChat('bot', `Error: ${errorMessage}`);
                 }
             },
             error: () => addMessageToChat('bot', 'Lo siento, ha ocurrido un error de conexión.'),
@@ -442,8 +517,10 @@ function renderQuickReplies() {
         }
     }
     
-    function handleQuickReplyClick() {
+    function handleQuickReplyClick(e) {
+        if (e) e.preventDefault();
         const message = $(this).text();
+        markUserInteraction();
         sendMessage(message);
     }
 
@@ -474,6 +551,7 @@ function renderQuickReplies() {
 
     function handleCalendarClick(e) {
         e.preventDefault();
+        markUserInteraction();
         const $link = $(this);
         const calendarLogId = $link.data('log-id');
         const assistantId = $link.data('assistant-id');
@@ -503,7 +581,9 @@ function renderQuickReplies() {
         $(document).on('click', '.aicp-quick-reply', handleQuickReplyClick);
         $(document).on('click', '.aicp-feedback-btn', handleFeedbackClick);
         $(document).on('click', '.aicp-calendar-link', handleCalendarClick);
-        
+        $(document).on('focus', '#aicp-chat-input', markUserInteraction);
+
         resetInactivityTimer();
+        scheduleAutoOpen();
     }
 });

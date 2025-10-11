@@ -17,6 +17,9 @@ class AICP_Pro_Features {
         $selected_posts = $settings['training_post_ids'] ?? [];
         $selected_cpts = $settings['training_post_types'] ?? [];
         $selected_files = isset($settings['training_file_ids']) && is_array($settings['training_file_ids']) ? array_map('intval', $settings['training_file_ids']) : [];
+        $auto_open_enabled = !empty($settings['auto_open_enabled']);
+        $auto_open_delay = isset($settings['auto_open_delay']) ? absint($settings['auto_open_delay']) : 5;
+        $auto_open_duration = isset($settings['auto_open_duration']) ? absint($settings['auto_open_duration']) : 0;
         
         // --- INICIO DE LA MODIFICACIÓN ---
         // Obtener las reglas de comportamiento guardadas
@@ -98,6 +101,35 @@ class AICP_Pro_Features {
             <span id="aicp-sync-status" style="font-weight: bold;"></span>
         </div>
 
+        <hr style="margin: 30px 0;">
+        <h4><?php _e('Comportamiento Avanzado del Widget', 'ai-chatbot-pro'); ?></h4>
+        <p class="description"><?php _e('Configura la apertura automática del chat para maximizar la captación de leads.', 'ai-chatbot-pro'); ?></p>
+        <table class="form-table">
+            <tr>
+                <th scope="row"><?php _e('Apertura Automática', 'ai-chatbot-pro'); ?></th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="aicp_settings[auto_open_enabled]" value="1" <?php checked($auto_open_enabled); ?>>
+                        <?php _e('Abrir el chat automáticamente tras cargar la página.', 'ai-chatbot-pro'); ?>
+                    </label>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="aicp_auto_open_delay"><?php _e('Retraso antes de abrir (segundos)', 'ai-chatbot-pro'); ?></label></th>
+                <td>
+                    <input type="number" min="0" id="aicp_auto_open_delay" name="aicp_settings[auto_open_delay]" value="<?php echo esc_attr($auto_open_delay); ?>" class="small-text">
+                    <span class="description"><?php _e('Tiempo que el widget esperará antes de mostrarse automáticamente.', 'ai-chatbot-pro'); ?></span>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="aicp_auto_open_duration"><?php _e('Tiempo visible antes de cerrarse (segundos)', 'ai-chatbot-pro'); ?></label></th>
+                <td>
+                    <input type="number" min="0" id="aicp_auto_open_duration" name="aicp_settings[auto_open_duration]" value="<?php echo esc_attr($auto_open_duration); ?>" class="small-text">
+                    <span class="description"><?php _e('Usa 0 para mantener el chat abierto hasta que el usuario interactúe.', 'ai-chatbot-pro'); ?></span>
+                </td>
+            </tr>
+        </table>
+
         <div style="margin-top: 20px; padding: 15px; background-color: #f7f7f7; border-left: 4px solid #7e8993;">
             <strong><?php _e('Estado de la Sincronización:', 'ai-chatbot-pro'); ?></strong>
             <p style="margin: 5px 0;"><?php if ($last_sync_time) : ?>Última sincronización: <?php echo date_i18n(get_option('date_format') . ' H:i', $last_sync_time); ?> (<?php echo esc_html($last_sync_count); ?> posts/páginas procesados).<?php else: ?>Este asistente no se ha sincronizado nunca.<?php endif; ?></p>
@@ -143,6 +175,10 @@ class AICP_Pro_Features {
         if (isset($new_settings['behavior_rules'])) {
             $current_settings['behavior_rules'] = sanitize_textarea_field($new_settings['behavior_rules']);
         }
+
+        $current_settings['auto_open_enabled'] = !empty($new_settings['auto_open_enabled']) ? 1 : 0;
+        $current_settings['auto_open_delay'] = isset($new_settings['auto_open_delay']) ? max(0, intval($new_settings['auto_open_delay'])) : 0;
+        $current_settings['auto_open_duration'] = isset($new_settings['auto_open_duration']) ? max(0, intval($new_settings['auto_open_duration'])) : 0;
 
         update_post_meta($post_id, '_aicp_assistant_settings', $current_settings);
     }
