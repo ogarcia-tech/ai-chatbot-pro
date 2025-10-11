@@ -50,60 +50,81 @@ function aicp_force_template_change_event() {
  */
 function aicp_admin_scripts($hook) {
     global $post;
-    if (($hook == 'post-new.php' || $hook == 'post.php') && isset($post->post_type) && 'aicp_assistant' === $post->post_type) {
-        wp_enqueue_media();
-        wp_enqueue_style('wp-color-picker');
-        wp_enqueue_style('aicp-admin-styles', AICP_PLUGIN_URL . 'assets/css/admin.css', [], AICP_VERSION);
-        wp_enqueue_style('aicp-chatbot-preview-styles', AICP_PLUGIN_URL . 'assets/css/chatbot.css', [], AICP_VERSION);
-        wp_register_script('aicp-templates', AICP_PLUGIN_URL . 'templates/templates.js', [], AICP_VERSION, true);
-        wp_enqueue_script('aicp-templates');
-        wp_enqueue_script('aicp-admin-script', AICP_PLUGIN_URL . 'assets/js/admin-scripts.js', ['jquery', 'wp-color-picker', 'aicp-templates'], AICP_VERSION, true);
 
-        $settings = get_post_meta($post->ID, '_aicp_assistant_settings', true);
-        if (!is_array($settings)) $settings = [];
+    $is_edit_screen = false;
+    $post_id = 0;
 
-        $default_bot_avatar  = AICP_PLUGIN_URL . 'assets/bot-default-avatar.png';
-        $default_user_avatar = AICP_PLUGIN_URL . 'assets/user-default-avatar.png';
-        $default_open_icon   = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>');
-
-        $meta = [
-            'brand' => sanitize_text_field(get_option('aicp_brand', '')),
-            'domain' => sanitize_text_field(get_option('aicp_domain', '')),
-            'services' => array_map('sanitize_text_field', (array) get_option('aicp_services', [])),
-            'pricing_ranges' => array_map('sanitize_text_field', (array) get_option('aicp_pricing_ranges', [])),
-            'timezone' => sanitize_text_field(wp_timezone_string()),
-        ];
-
-        wp_localize_script('aicp-admin-script', 'aicp_admin_params', [
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'assistant_id' => $post->ID,
-            'delete_nonce' => wp_create_nonce('aicp_delete_log_nonce'),
-            'get_log_nonce' => wp_create_nonce('aicp_get_log_nonce'),
-            'capture_lead_nonce' => wp_create_nonce('aicp_capture_lead_nonce'),
-            'default_bot_avatar' => $default_bot_avatar,
-            'default_user_avatar' => $default_user_avatar,
-            'default_open_icon' => $default_open_icon,
-            'templates_url' => AICP_PLUGIN_URL . 'assistant_templates.json',
-            'initial_settings' => [
-                'bot_avatar_url' => $settings['bot_avatar_url'] ?? $default_bot_avatar,
-                'user_avatar_url' => $settings['user_avatar_url'] ?? $default_user_avatar,
-                'open_icon_url' => $settings['open_icon_url'] ?? $default_open_icon,
-                'position' => $settings['position'] ?? 'br',
-                'color_primary' => $settings['color_primary'] ?? '#0073aa',
-                'color_bot_bg' => $settings['color_bot_bg'] ?? '#ffffff',
-                'color_bot_text' => $settings['color_bot_text'] ?? '#333333',
-                'color_user_bg' => $settings['color_user_bg'] ?? '#dcf8c6',
-                'color_user_text' => $settings['color_user_text'] ?? '#000000',
-                'template_id' => $settings['template_id'] ?? '',
-                'persona' => $settings['persona'] ?? '',
-                'objective' => $settings['objective'] ?? '',
-                'length_tone' => $settings['length_tone'] ?? '',
-                'example' => $settings['example'] ?? '',
-                'quick_replies' => $settings['quick_replies'] ?? [],
-            ],
-            'meta' => $meta,
-        ]);
+    if ($hook === 'post.php' && isset($post->post_type) && 'aicp_assistant' === $post->post_type) {
+        $is_edit_screen = true;
+        $post_id = (int) $post->ID;
+    } elseif ($hook === 'post-new.php') {
+        $requested_type = isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : '';
+        if ('aicp_assistant' === $requested_type) {
+            $is_edit_screen = true;
+        }
     }
+
+    if (!$is_edit_screen) {
+        return;
+    }
+
+    wp_enqueue_media();
+    wp_enqueue_style('wp-color-picker');
+    wp_enqueue_style('aicp-admin-styles', AICP_PLUGIN_URL . 'assets/css/admin.css', [], AICP_VERSION);
+    wp_enqueue_style('aicp-chatbot-preview-styles', AICP_PLUGIN_URL . 'assets/css/chatbot.css', [], AICP_VERSION);
+    wp_register_script('aicp-templates', AICP_PLUGIN_URL . 'templates/templates.js', [], AICP_VERSION, true);
+    wp_enqueue_script('aicp-templates');
+    wp_enqueue_script('aicp-admin-script', AICP_PLUGIN_URL . 'assets/js/admin-scripts.js', ['jquery', 'wp-color-picker', 'aicp-templates'], AICP_VERSION, true);
+
+    $settings = [];
+    if ($post_id > 0) {
+        $settings = get_post_meta($post_id, '_aicp_assistant_settings', true);
+    }
+    if (!is_array($settings)) {
+        $settings = [];
+    }
+
+    $default_bot_avatar  = AICP_PLUGIN_URL . 'assets/bot-default-avatar.png';
+    $default_user_avatar = AICP_PLUGIN_URL . 'assets/user-default-avatar.png';
+    $default_open_icon   = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>');
+
+    $meta = [
+        'brand' => sanitize_text_field(get_option('aicp_brand', '')),
+        'domain' => sanitize_text_field(get_option('aicp_domain', '')),
+        'services' => array_map('sanitize_text_field', (array) get_option('aicp_services', [])),
+        'pricing_ranges' => array_map('sanitize_text_field', (array) get_option('aicp_pricing_ranges', [])),
+        'timezone' => sanitize_text_field(wp_timezone_string()),
+    ];
+
+    wp_localize_script('aicp-admin-script', 'aicp_admin_params', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'assistant_id' => $post_id,
+        'delete_nonce' => wp_create_nonce('aicp_delete_log_nonce'),
+        'get_log_nonce' => wp_create_nonce('aicp_get_log_nonce'),
+        'capture_lead_nonce' => wp_create_nonce('aicp_capture_lead_nonce'),
+        'default_bot_avatar' => $default_bot_avatar,
+        'default_user_avatar' => $default_user_avatar,
+        'default_open_icon' => $default_open_icon,
+        'templates_url' => AICP_PLUGIN_URL . 'assistant_templates.json',
+        'initial_settings' => [
+            'bot_avatar_url' => $settings['bot_avatar_url'] ?? $default_bot_avatar,
+            'user_avatar_url' => $settings['user_avatar_url'] ?? $default_user_avatar,
+            'open_icon_url' => $settings['open_icon_url'] ?? $default_open_icon,
+            'position' => $settings['position'] ?? 'br',
+            'color_primary' => $settings['color_primary'] ?? '#0073aa',
+            'color_bot_bg' => $settings['color_bot_bg'] ?? '#ffffff',
+            'color_bot_text' => $settings['color_bot_text'] ?? '#333333',
+            'color_user_bg' => $settings['color_user_bg'] ?? '#dcf8c6',
+            'color_user_text' => $settings['color_user_text'] ?? '#000000',
+            'template_id' => $settings['template_id'] ?? '',
+            'persona' => $settings['persona'] ?? '',
+            'objective' => $settings['objective'] ?? '',
+            'length_tone' => $settings['length_tone'] ?? '',
+            'example' => $settings['example'] ?? '',
+            'quick_replies' => is_array($settings['quick_replies'] ?? null) ? $settings['quick_replies'] : [],
+        ],
+        'meta' => $meta,
+    ]);
 }
 add_action('admin_enqueue_scripts', 'aicp_admin_scripts');
 

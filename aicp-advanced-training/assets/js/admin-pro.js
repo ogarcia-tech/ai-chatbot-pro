@@ -5,9 +5,20 @@ jQuery(function($) {
 
     // --- MANEJADOR PARA EL BOTÓN DE SINCRONIZACIÓN (EN PÁGINA DE ASISTENTE) ---
     if ($('body').hasClass('post-type-aicp_assistant')) {
+        const assistantId = parseInt(aicp_pro_params.assistant_id || 0, 10) || 0;
+        if (!assistantId) {
+            $('#aicp-sync-button').prop('disabled', true);
+            $('#aicp-sync-status').text('Guarda el asistente antes de sincronizar.').css('color', 'red');
+        }
         $('#aicp-training-controls').on('click', '#aicp-sync-button', function() {
             const $button = $(this);
             const $status = $('#aicp-sync-status');
+            const currentAssistantId = parseInt(aicp_pro_params.assistant_id || 0, 10) || 0;
+
+            if (!currentAssistantId) {
+                $status.text('Guarda el asistente antes de sincronizar.').css('color', 'red');
+                return;
+            }
             const selectedPostIds = $('input[name="aicp_settings[training_post_ids][]"]:checked').map(function() { return $(this).val(); }).get();
             const selectedCptSlugs = $('input[name="aicp_settings[training_post_types][]"]:checked').map(function() { return $(this).val(); }).get();
 
@@ -27,7 +38,7 @@ jQuery(function($) {
                     nonce: aicp_pro_params.nonce,
                     post_ids: selectedPostIds,
                     cpt_slugs: selectedCptSlugs,
-                    assistant_id: aicp_pro_params.assistant_id
+                    assistant_id: currentAssistantId
                 },
                 success: function(response) {
                     if (response.success) {

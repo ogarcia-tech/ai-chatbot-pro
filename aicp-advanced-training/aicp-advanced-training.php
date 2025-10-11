@@ -42,7 +42,19 @@ function aicp_pro_init() {
 function aicp_pro_enqueue_admin_scripts($hook) {
     global $post;
 
-    $is_assistant_edit_page = ($hook == 'post-new.php' || $hook == 'post.php') && isset($post) && $post->post_type === 'aicp_assistant';
+    $is_assistant_edit_page = false;
+    $post_id = 0;
+
+    if ($hook === 'post.php' && isset($post) && isset($post->post_type) && $post->post_type === 'aicp_assistant') {
+        $is_assistant_edit_page = true;
+        $post_id = (int) $post->ID;
+    } elseif ($hook === 'post-new.php') {
+        $requested_type = isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : '';
+        if ('aicp_assistant' === $requested_type) {
+            $is_assistant_edit_page = true;
+        }
+    }
+
     $is_settings_page = ($hook === 'aicp_assistant_page_aicp-settings');
 
     if ($is_assistant_edit_page || $is_settings_page) {
@@ -58,9 +70,10 @@ function aicp_pro_enqueue_admin_scripts($hook) {
         // Prepara y pasa variables de PHP a JavaScript de forma segura
         $params = [ 'ajax_url' => admin_url('admin-ajax.php') ];
         if ($is_assistant_edit_page) {
-            $params['assistant_id'] = $post->ID;
+            $params['assistant_id'] = $post_id;
             $params['nonce'] = wp_create_nonce('aicp_save_meta_box_data');
         } else {
+            $params['assistant_id'] = 0;
             $params['nonce'] = wp_create_nonce('aicp_global_settings_nonce');
         }
         wp_localize_script('aicp-admin-pro-js', 'aicp_pro_params', $params);
