@@ -68,7 +68,12 @@ function aicp_pro_enqueue_admin_scripts($hook) {
         );
 
         // Prepara y pasa variables de PHP a JavaScript de forma segura
-        $params = [ 'ajax_url' => admin_url('admin-ajax.php') ];
+        $params = [
+            'ajax_url'      => admin_url('admin-ajax.php'),
+            'remove_label'  => __('Eliminar', 'ai-chatbot-pro'),
+            'media_title'   => __('Seleccionar archivos para entrenamiento', 'ai-chatbot-pro'),
+            'media_button'  => __('Usar estos archivos', 'ai-chatbot-pro'),
+        ];
         if ($is_assistant_edit_page) {
             $params['assistant_id'] = $post_id;
             $params['nonce'] = wp_create_nonce('aicp_save_meta_box_data');
