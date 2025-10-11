@@ -16,6 +16,7 @@ class AICP_Pro_Features {
         
         $selected_posts = $settings['training_post_ids'] ?? [];
         $selected_cpts = $settings['training_post_types'] ?? [];
+        $selected_files = isset($settings['training_file_ids']) && is_array($settings['training_file_ids']) ? array_map('intval', $settings['training_file_ids']) : [];
         
         // --- INICIO DE LA MODIFICACIÓN ---
         // Obtener las reglas de comportamiento guardadas
@@ -37,6 +38,16 @@ class AICP_Pro_Features {
         $all_pages = get_posts(['post_type' => 'page', 'posts_per_page' => -1, 'post_status' => 'publish', 'orderby' => 'title', 'order' => 'ASC']);
         $all_posts = get_posts(['post_type' => 'post', 'posts_per_page' => -1, 'post_status' => 'publish', 'orderby' => 'title', 'order' => 'ASC']);
         $cpts = get_post_types(['public' => true, '_builtin' => false], 'objects');
+        $uploaded_files = [];
+        if (!empty($selected_files)) {
+            $uploaded_files = get_posts([
+                'post_type'      => 'attachment',
+                'post__in'       => $selected_files,
+                'posts_per_page' => -1,
+                'orderby'        => 'post__in',
+            ]);
+        }
+
         ?>
         <h4><?php _e('Entrenamiento de Contenido (con OpenAI)', 'ai-chatbot-pro'); ?></h4>
         <p class="description"><?php _e('Selecciona el contenido de tu web para crear una base de conocimiento directamente en OpenAI. El asistente usará esta información para responder.', 'ai-chatbot-pro'); ?></p>
@@ -47,7 +58,38 @@ class AICP_Pro_Features {
         </div>
         <h4 style="margin-top: 30px;"><?php _e('Entrenamiento por Tipo de Contenido', 'ai-chatbot-pro'); ?></h4>
         <fieldset style="margin-top: 10px;"><?php foreach ($cpts as $cpt): ?><label style="margin-right: 15px; display:inline-block;"><input type="checkbox" name="aicp_settings[training_post_types][]" value="<?php echo esc_attr($cpt->name); ?>" <?php checked(in_array($cpt->name, $selected_cpts)); ?>> <?php echo esc_html($cpt->label); ?></label><?php endforeach; ?></fieldset>
-        
+
+        <h4 style="margin-top: 30px;"><?php _e('Archivos Personalizados', 'ai-chatbot-pro'); ?></h4>
+        <p class="description"><?php _e('Complementa el entrenamiento con PDFs, documentos o textos externos. Se añadirán a la base de conocimiento del asistente mediante la herramienta de File Search de OpenAI.', 'ai-chatbot-pro'); ?></p>
+        <div class="aicp-training-files-wrapper">
+            <div class="aicp-training-files-actions">
+                <button type="button" class="button" id="aicp-training-upload-button"><?php _e('Seleccionar archivos', 'ai-chatbot-pro'); ?></button>
+                <span class="description"><?php _e('Formatos recomendados: PDF, TXT, DOCX, CSV, Markdown.', 'ai-chatbot-pro'); ?></span>
+            </div>
+            <input type="hidden" id="aicp_training_file_ids" name="aicp_settings[training_file_ids]" value="<?php echo esc_attr(implode(',', $selected_files)); ?>">
+            <ul id="aicp-training-file-list" class="aicp-training-file-list">
+                <?php foreach ($uploaded_files as $file) :
+                    $file_path = get_attached_file($file->ID);
+                    $filesize = ($file_path && file_exists($file_path)) ? size_format(filesize($file_path)) : '';
+                ?>
+                    <li data-file-id="<?php echo esc_attr($file->ID); ?>">
+                        <span>
+                            <strong><?php echo esc_html(get_the_title($file)); ?></strong>
+                            <?php if ($filesize) : ?>
+                                <small style="opacity:0.7;">(<?php echo esc_html($filesize); ?>)</small>
+                            <?php endif; ?>
+                        </span>
+                        <button type="button" class="button-link aicp-training-file-remove" data-file-id="<?php echo esc_attr($file->ID); ?>"><?php _e('Eliminar', 'ai-chatbot-pro'); ?></button>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+            <?php if (empty($uploaded_files)) : ?>
+                <p class="description" id="aicp-training-no-files"><?php _e('Todavía no has añadido archivos personalizados.', 'ai-chatbot-pro'); ?></p>
+            <?php else : ?>
+                <p class="description" id="aicp-training-no-files" style="display:none;">&nbsp;</p>
+            <?php endif; ?>
+        </div>
+
         <h4 style="margin-top: 30px;"><?php _e('Reglas de Comportamiento (Prompt Avanzado)', 'ai-chatbot-pro'); ?></h4>
         <p class="description"><?php _e('Estas instrucciones se añaden a la personalidad base del asistente. Definen cómo debe usar la información sincronizada.', 'ai-chatbot-pro'); ?></p>
         <textarea name="aicp_settings[behavior_rules]" rows="6" class="large-text"><?php echo esc_textarea($behavior_rules); ?></textarea>
@@ -86,6 +128,16 @@ class AICP_Pro_Features {
         
         $current_settings['training_post_ids'] = isset($new_settings['training_post_ids']) && is_array($new_settings['training_post_ids']) ? array_map('intval', $new_settings['training_post_ids']) : [];
         $current_settings['training_post_types'] = isset($new_settings['training_post_types']) && is_array($new_settings['training_post_types']) ? array_map('sanitize_text_field', $new_settings['training_post_types']) : [];
+
+        if (!empty($new_settings['training_file_ids'])) {
+            $file_ids = array_filter(array_map('intval', explode(',', $new_settings['training_file_ids'])));
+            $file_ids = array_filter($file_ids, function($id) {
+                return get_post_type($id) === 'attachment';
+            });
+            $current_settings['training_file_ids'] = array_values($file_ids);
+        } else {
+            $current_settings['training_file_ids'] = [];
+        }
         
         // Guardar el nuevo campo de reglas de comportamiento
         if (isset($new_settings['behavior_rules'])) {

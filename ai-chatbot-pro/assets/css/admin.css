@@ -18,18 +18,49 @@
 
 /* Uploader de imágenes */
 .aicp-uploader-wrapper { display: flex; align-items: center; gap: 10px; }
-.aicp-preview-image { 
-    width: 40px; 
-    height: 40px; 
-    border-radius: 50%; 
-    object-fit: cover; 
-    border: 1px solid #ddd; 
-    background-color: white; 
+.aicp-preview-image {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #ddd;
+    background-color: white;
 }
 .aicp-uploader-wrapper img[id="open_icon_preview"] {
     border-radius: 0;
     background-color: transparent;
     padding: 5px; /* Añadir padding para que el icono no se vea pegado al borde */
+}
+.aicp-training-files-wrapper {
+    margin-top: 10px;
+}
+.aicp-training-files-actions {
+    margin-bottom: 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.aicp-training-file-list {
+    list-style: disc;
+    padding-left: 20px;
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0;
+}
+.aicp-training-file-list li {
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.aicp-training-file-remove {
+    color: #b32d2e;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.aicp-training-file-remove:hover {
+    color: #8a1f20;
 }
 
 /* Tabla de logs y acciones */

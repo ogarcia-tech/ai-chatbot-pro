@@ -11,7 +11,7 @@ class AICP_OpenAI_Assistants_Manager {
     /**
      * Nueva función de subida de archivos usando cURL directo para máxima compatibilidad.
      */
-    private static function curl_upload_file($file_path, $filename) {
+    private static function curl_upload_file($file_path, $filename, $mime_type = 'application/octet-stream') {
         $api_key = self::get_api_key();
         if (!$api_key) return new WP_Error('api_error', 'Falta la API Key de OpenAI.');
 
@@ -26,7 +26,7 @@ class AICP_OpenAI_Assistants_Manager {
 
         $post_fields = [
             'purpose' => 'assistants',
-            'file'    => new CURLFile($file_path, 'text/plain', $filename)
+            'file'    => new CURLFile($file_path, $mime_type, $filename)
         ];
 
         curl_setopt_array($ch, [
@@ -95,38 +95,81 @@ class AICP_OpenAI_Assistants_Manager {
         
         $post_ids = isset($_POST['post_ids']) && is_array($_POST['post_ids']) ? array_map('intval', $_POST['post_ids']) : [];
         $cpt_slugs = isset($_POST['cpt_slugs']) && is_array($_POST['cpt_slugs']) ? array_map('sanitize_text_field', $_POST['cpt_slugs']) : [];
+        $file_ids_input = $_POST['file_ids'] ?? [];
+        if (is_string($file_ids_input)) {
+            $file_ids_input = explode(',', $file_ids_input);
+        }
+        $attachment_ids = is_array($file_ids_input) ? array_filter(array_map('intval', $file_ids_input)) : [];
+        $attachment_ids = array_values(array_unique($attachment_ids));
+
         if (!empty($cpt_slugs)) {
             $cpt_posts = get_posts(['post_type' => $cpt_slugs, 'posts_per_page' => -1, 'post_status' => 'publish', 'fields' => 'ids']);
             if (!empty($cpt_posts)) $post_ids = array_unique(array_merge($post_ids, $cpt_posts));
         }
-        if (empty($post_ids)) wp_send_json_error(['message' => 'No se encontró contenido para sincronizar.']);
-        
-        $posts_to_index = get_posts(['post__in' => $post_ids, 'post_type' => 'any', 'posts_per_page' => -1, 'post_status' => 'publish']);
-        if (empty($posts_to_index)) wp_send_json_error(['message' => 'El contenido seleccionado no está publicado.']);
+        if (empty($post_ids) && empty($attachment_ids)) wp_send_json_error(['message' => 'No se encontró contenido para sincronizar.']);
 
-        $file_content = "";
-        foreach ($posts_to_index as $post) {
-            $file_content .= "== Título: " . $post->post_title . " ==\nURL: " . get_permalink($post->ID) . "\n\n";
-            $content = strip_tags($post->post_content);
-            $content = preg_replace('/\s+/', ' ', $content);
-            $file_content .= trim($content) . "\n\n---\n\n";
+        $posts_to_index = [];
+        if (!empty($post_ids)) {
+            $posts_to_index = get_posts(['post__in' => $post_ids, 'post_type' => 'any', 'posts_per_page' => -1, 'post_status' => 'publish']);
+            if (empty($posts_to_index) && empty($attachment_ids)) {
+                wp_send_json_error(['message' => 'El contenido seleccionado no está publicado.']);
+            }
         }
 
-        $temp_file_path = wp_tempnam('aicp_sync_');
-        file_put_contents($temp_file_path, $file_content);
-        $filename = "wordpress-content-{$assistant_id_wp}-" . time() . ".txt";
-        
-        $response = self::curl_upload_file($temp_file_path, $filename);
-        @unlink($temp_file_path);
-        
-        if (is_wp_error($response)) {
-            wp_send_json_error(['message' => 'Paso 1/3 Fallido (Subida de Archivo): ' . $response->get_error_message()]);
+        $uploaded_file_ids = [];
+        $total_sources = 0;
+
+        if (!empty($posts_to_index)) {
+            $file_content = "";
+            foreach ($posts_to_index as $post) {
+                $file_content .= "== Título: " . $post->post_title . " ==\nURL: " . get_permalink($post->ID) . "\n\n";
+                $content = strip_tags($post->post_content);
+                $content = preg_replace('/\s+/', ' ', $content);
+                $file_content .= trim($content) . "\n\n---\n\n";
+            }
+
+            $temp_file_path = wp_tempnam('aicp_sync_');
+            file_put_contents($temp_file_path, $file_content);
+            $filename = "wordpress-content-{$assistant_id_wp}-" . time() . ".txt";
+
+            $response = self::curl_upload_file($temp_file_path, $filename, 'text/plain');
+            @unlink($temp_file_path);
+
+            if (is_wp_error($response)) {
+                wp_send_json_error(['message' => 'Paso 1/3 Fallido (Subida de Archivo): ' . $response->get_error_message()]);
+            }
+            $uploaded_file_ids[] = $response['id'];
+            $total_sources += count($posts_to_index);
         }
-        $file_id = $response['id'];
+
+        if (!empty($attachment_ids)) {
+            foreach ($attachment_ids as $attachment_id) {
+                $file_path = get_attached_file($attachment_id);
+                if (!$file_path || !file_exists($file_path)) {
+                    wp_send_json_error(['message' => sprintf('El archivo personalizado (ID %d) no está disponible en el servidor.', $attachment_id)]);
+                }
+                $filename = basename($file_path);
+                $mime_type = get_post_mime_type($attachment_id);
+                if (empty($mime_type)) {
+                    $filetype = wp_check_filetype($filename);
+                    $mime_type = $filetype['type'] ?: 'application/octet-stream';
+                }
+                $response = self::curl_upload_file($file_path, $filename, $mime_type);
+                if (is_wp_error($response)) {
+                    wp_send_json_error(['message' => 'Error al subir archivo personalizado (ID ' . $attachment_id . '): ' . $response->get_error_message()]);
+                }
+                $uploaded_file_ids[] = $response['id'];
+                $total_sources++;
+            }
+        }
+
+        if (empty($uploaded_file_ids)) {
+            wp_send_json_error(['message' => 'No se pudo subir ningún archivo a OpenAI.']);
+        }
 
         $vector_store_id = get_post_meta($assistant_id_wp, '_aicp_vector_store_id', true);
         if (empty($vector_store_id)) {
-            $vs_response = self::remote_request('vector_stores', ['name' => "Knowledgebase for Assistant {$assistant_id_wp}", 'file_ids' => [$file_id]]);
+            $vs_response = self::remote_request('vector_stores', ['name' => "Knowledgebase for Assistant {$assistant_id_wp}", 'file_ids' => $uploaded_file_ids]);
             $vs_body = json_decode(wp_remote_retrieve_body($vs_response), true);
             if (wp_remote_retrieve_response_code($vs_response) !== 200) {
                  wp_send_json_error(['message' => "Paso 2/3 Fallido (Crear Vector Store): " . ($vs_body['error']['message'] ?? 'Error desconocido')]);
@@ -134,7 +177,9 @@ class AICP_OpenAI_Assistants_Manager {
             $vector_store_id = $vs_body['id'];
             update_post_meta($assistant_id_wp, '_aicp_vector_store_id', $vector_store_id);
         } else {
-            self::remote_request("vector_stores/{$vector_store_id}/files", ['file_id' => $file_id]);
+            foreach ($uploaded_file_ids as $file_id) {
+                self::remote_request("vector_stores/{$vector_store_id}/files", ['file_id' => $file_id]);
+            }
         }
         
         $s = get_post_meta($assistant_id_wp, '_aicp_assistant_settings', true);
@@ -176,10 +221,10 @@ class AICP_OpenAI_Assistants_Manager {
         }
         
         update_post_meta($assistant_id_wp, '_aicp_openai_assistant_id', $body['id']);
-        update_post_meta($assistant_id_wp, '_aicp_last_sync_count', count($posts_to_index));
+        update_post_meta($assistant_id_wp, '_aicp_last_sync_count', $total_sources);
         update_post_meta($assistant_id_wp, '_aicp_last_sync_time', time());
 
-        wp_send_json_success(['message' => '¡Sincronización con OpenAI completada!', 'count' => count($posts_to_index)]);
+        wp_send_json_success(['message' => '¡Sincronización con OpenAI completada!', 'count' => $total_sources, 'files' => count($uploaded_file_ids)]);
     }
 
     public static function handle_chat($assistant_id_wp, $user_message, $session_id) {
