@@ -96,11 +96,12 @@ class AICP_Frontend_Loader {
             $quick_replies = array_map('trim', $s['quick_replies']);
         }
 
-
-        // Obtener configuración de detección de leads
-
-        $lead_auto_collect  = !empty($s['lead_auto_collect']) ? true : false;
-
+        // Obtener configuración adicional
+        $lead_auto_collect  = !empty($s['lead_auto_collect']);
+        $calendar_url       = !empty($s['calendar_url']) ? esc_url($s['calendar_url']) : '';
+        $auto_open_enabled  = !empty($s['auto_open_enabled']);
+        $auto_open_delay    = isset($s['auto_open_delay']) ? max(0, intval($s['auto_open_delay'])) : 0;
+        $auto_open_duration = isset($s['auto_open_duration']) ? max(0, intval($s['auto_open_duration'])) : 0;
 
         wp_localize_script('aicp-chatbot-script', 'aicp_chatbot_params', [
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -118,8 +119,12 @@ class AICP_Frontend_Loader {
             'quick_replies' => $quick_replies,
 
             'lead_auto_collect'  => $lead_auto_collect,
-
-
+            'calendar_url'       => $calendar_url,
+            'auto_open'          => [
+                'enabled'  => $auto_open_enabled,
+                'delay'    => $auto_open_delay,
+                'duration' => $auto_open_duration,
+            ],
         ]);
     }
 
