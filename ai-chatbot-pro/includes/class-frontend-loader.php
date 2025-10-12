@@ -102,6 +102,7 @@ class AICP_Frontend_Loader {
         $auto_open_enabled  = !empty($s['auto_open_enabled']);
         $auto_open_delay    = isset($s['auto_open_delay']) ? max(0, intval($s['auto_open_delay'])) : 0;
         $auto_open_duration = isset($s['auto_open_duration']) ? max(0, intval($s['auto_open_duration'])) : 0;
+        $auto_open_message  = isset($s['auto_open_message']) ? sanitize_textarea_field($s['auto_open_message']) : '';
 
         wp_localize_script('aicp-chatbot-script', 'aicp_chatbot_params', [
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -124,6 +125,7 @@ class AICP_Frontend_Loader {
                 'enabled'  => $auto_open_enabled,
                 'delay'    => $auto_open_delay,
                 'duration' => $auto_open_duration,
+                'message'  => $auto_open_message,
             ],
         ]);
     }
