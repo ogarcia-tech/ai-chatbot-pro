@@ -227,42 +227,91 @@ class AICP_OpenAI_Assistants_Manager {
         wp_send_json_success(['message' => '¡Sincronización con OpenAI completada!', 'count' => $total_sources, 'files' => count($uploaded_file_ids)]);
     }
 
-    public static function handle_chat($assistant_id_wp, $user_message, $session_id) {
-        $openai_assistant_id = get_post_meta($assistant_id_wp, '_aicp_openai_assistant_id', true);
-        if (empty($openai_assistant_id)) return new WP_Error('config_error', 'Este asistente no está sincronizado.');
+    private static function sanitize_session_id($session_id) {
+        $session_id = is_string($session_id) ? preg_replace('/[^a-zA-Z0-9_-]/', '', $session_id) : '';
+        if (empty($session_id)) {
+            $session_id = 'aicp_' . wp_generate_uuid4();
+        }
+        return $session_id;
+    }
 
-        $thread_id = get_transient("aicp_thread_{$session_id}");
-        if (empty($thread_id)) {
-            $response = self::remote_request('threads', []);
-            $body = json_decode(wp_remote_retrieve_body($response), true);
-            $thread_id = $body['id'];
-            set_transient("aicp_thread_{$session_id}", $thread_id, DAY_IN_SECONDS);
+    private static function get_thread_transient_key($session_id) {
+        return 'aicp_thread_' . md5($session_id);
+    }
+
+    public static function handle_chat($assistant_id_wp, $user_message, $session_id = '') {
+        $openai_assistant_id = get_post_meta($assistant_id_wp, '_aicp_openai_assistant_id', true);
+        if (empty($openai_assistant_id)) {
+            return new WP_Error('config_error', 'Este asistente no está sincronizado.');
         }
 
-        self::remote_request("threads/{$thread_id}/messages", ['role' => 'user', 'content' => $user_message]);
-        
+        $session_id = self::sanitize_session_id($session_id);
+        $thread_key = self::get_thread_transient_key($session_id);
+
+        $thread_id = get_transient($thread_key);
+        if (empty($thread_id)) {
+            $response = self::remote_request('threads', []);
+            if (is_wp_error($response)) {
+                return $response;
+            }
+            $code = wp_remote_retrieve_response_code($response);
+            $body = json_decode(wp_remote_retrieve_body($response), true);
+            if ($code !== 200 || empty($body['id'])) {
+                $message = $body['error']['message'] ?? 'No se pudo crear el hilo en OpenAI.';
+                return new WP_Error('thread_error', $message);
+            }
+            $thread_id = $body['id'];
+            set_transient($thread_key, $thread_id, DAY_IN_SECONDS);
+        }
+
+        $message_response = self::remote_request("threads/{$thread_id}/messages", ['role' => 'user', 'content' => $user_message]);
+        if (is_wp_error($message_response)) {
+            return $message_response;
+        }
+
         $run_response = self::remote_request("threads/{$thread_id}/runs", ['assistant_id' => $openai_assistant_id]);
+        if (is_wp_error($run_response)) {
+            return $run_response;
+        }
         $run_body = json_decode(wp_remote_retrieve_body($run_response), true);
-        if(empty($run_body['id'])) return new WP_Error('run_error', 'No se pudo iniciar la ejecución del asistente en OpenAI.');
+        if (empty($run_body['id'])) {
+            $error_message = $run_body['error']['message'] ?? 'No se pudo iniciar la ejecución del asistente en OpenAI.';
+            return new WP_Error('run_error', $error_message);
+        }
         $run_id = $run_body['id'];
 
         $start_time = time();
+        $run_status_body = null;
         while (time() - $start_time < 30) {
             $run_status_response = self::remote_request("threads/{$thread_id}/runs/{$run_id}", [], 'GET');
+            if (is_wp_error($run_status_response)) {
+                return $run_status_response;
+            }
             $run_status_body = json_decode(wp_remote_retrieve_body($run_status_response), true);
-            if (in_array($run_status_body['status'], ['completed', 'failed', 'cancelled'])) break;
+            if (isset($run_status_body['status']) && in_array($run_status_body['status'], ['completed', 'failed', 'cancelled'], true)) {
+                break;
+            }
             sleep(1);
         }
 
-        if ($run_status_body['status'] !== 'completed') return new WP_Error('run_error', 'La IA tardó demasiado en responder o encontró un error. Estado: ' . $run_status_body['status']);
-        
+        if (!isset($run_status_body['status']) || $run_status_body['status'] !== 'completed') {
+            $status = $run_status_body['status'] ?? 'unknown';
+            return new WP_Error('run_error', 'La IA tardó demasiado en responder o encontró un error. Estado: ' . $status);
+        }
+
         $messages_response = self::remote_request("threads/{$thread_id}/messages?limit=1", [], 'GET');
+        if (is_wp_error($messages_response)) {
+            return $messages_response;
+        }
         $messages_body = json_decode(wp_remote_retrieve_body($messages_response), true);
 
         if (!empty($messages_body['data'][0]['content'][0]['text']['value'])) {
-             $raw_response = $messages_body['data'][0]['content'][0]['text']['value'];
-             $clean_response = preg_replace('/【.*?】/u', '', $raw_response);
-             return trim($clean_response);
+            $raw_response = $messages_body['data'][0]['content'][0]['text']['value'];
+            $clean_response = preg_replace('/【.*?】/u', '', $raw_response);
+            return [
+                'reply' => trim($clean_response),
+                'session_id' => $session_id,
+            ];
         }
 
         return new WP_Error('no_response', 'La IA no proporcionó una respuesta válida.');

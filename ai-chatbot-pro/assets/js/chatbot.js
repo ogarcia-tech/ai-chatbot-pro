@@ -12,6 +12,7 @@ jQuery(function($) {
     let isChatOpen = false;
     let isThinking = false;
     let isChatEnded = false;
+    let sessionId = null;
     let leadData = {
         email: null,
         name: null,
@@ -29,6 +30,7 @@ jQuery(function($) {
     let autoOpenTimeout = null;
     let autoCloseTimeout = null;
     let hasUserInteracted = false;
+    let autoWelcomeShown = false;
 
     const farewellPatterns = [
         /ad[ií]os/i,
@@ -223,6 +225,16 @@ function renderQuickReplies() {
         }
     }
 
+    function maybeShowAutoWelcomeMessage() {
+        if (autoWelcomeShown) return;
+        const welcomeMessage = params.auto_open && params.auto_open.message ? params.auto_open.message.trim() : '';
+        if (!welcomeMessage) return;
+
+        addMessageToChat('bot', welcomeMessage);
+        conversationHistory.push({ role: 'assistant', content: welcomeMessage });
+        autoWelcomeShown = true;
+    }
+
     function scheduleAutoOpen() {
         if (!params.auto_open || !params.auto_open.enabled) return;
 
@@ -235,6 +247,7 @@ function renderQuickReplies() {
         autoOpenTimeout = setTimeout(() => {
             if (hasUserInteracted || isChatOpen) return;
             openChatWindow(true);
+            maybeShowAutoWelcomeMessage();
 
             if (duration > 0) {
                 clearAutoCloseTimeout();
@@ -462,21 +475,23 @@ function renderQuickReplies() {
         }
 
         $.ajax({
-            url: params.ajax_url, 
+            url: params.ajax_url,
             type: 'POST',
-            data: { 
-                action: 'aicp_chat_request', 
+            data: {
+                action: 'aicp_chat_request',
                 nonce: params.nonce,
                 assistant_id: params.assistant_id,
                 history: conversationHistory,
                 log_id: logId,
                 lead_data: leadData,
-                page_context: getPageContext()
+                page_context: getPageContext(),
+                session_id: sessionId
             },
             success: (response) => {
                 if (response.success) {
                     const botReply = response.data.reply;
                     logId = response.data.log_id;
+                    sessionId = response.data.session_id || sessionId;
                     const parts = splitLongMessage(botReply, 170);
                     parts.forEach(part => {
                         conversationHistory.push({ role: 'assistant', content: part });
@@ -585,5 +600,8 @@ function renderQuickReplies() {
 
         resetInactivityTimer();
         scheduleAutoOpen();
+        if (params.auto_open && params.auto_open.enabled && parseInt(params.auto_open.delay, 10) === 0) {
+            maybeShowAutoWelcomeMessage();
+        }
     }
 });

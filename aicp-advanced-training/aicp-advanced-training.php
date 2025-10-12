@@ -59,6 +59,9 @@ function aicp_pro_enqueue_admin_scripts($hook) {
 
     if ($is_assistant_edit_page || $is_settings_page) {
         $plugin_url = plugin_dir_url(__FILE__);
+        if ($is_assistant_edit_page && function_exists('wp_enqueue_media')) {
+            wp_enqueue_media();
+        }
         wp_enqueue_script(
             'aicp-admin-pro-js',
             $plugin_url . 'assets/js/admin-pro.js',

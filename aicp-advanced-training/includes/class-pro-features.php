@@ -20,6 +20,7 @@ class AICP_Pro_Features {
         $auto_open_enabled = !empty($settings['auto_open_enabled']);
         $auto_open_delay = isset($settings['auto_open_delay']) ? absint($settings['auto_open_delay']) : 5;
         $auto_open_duration = isset($settings['auto_open_duration']) ? absint($settings['auto_open_duration']) : 0;
+        $auto_open_message = isset($settings['auto_open_message']) ? $settings['auto_open_message'] : '';
         
         // --- INICIO DE LA MODIFICACIÓN ---
         // Obtener las reglas de comportamiento guardadas
@@ -128,6 +129,13 @@ class AICP_Pro_Features {
                     <span class="description"><?php _e('Usa 0 para mantener el chat abierto hasta que el usuario interactúe.', 'ai-chatbot-pro'); ?></span>
                 </td>
             </tr>
+            <tr>
+                <th scope="row"><label for="aicp_auto_open_message"><?php _e('Mensaje de bienvenida automático', 'ai-chatbot-pro'); ?></label></th>
+                <td>
+                    <textarea id="aicp_auto_open_message" name="aicp_settings[auto_open_message]" rows="3" class="large-text"><?php echo esc_textarea($auto_open_message); ?></textarea>
+                    <span class="description"><?php _e('Si se abre solo, el asistente mostrará este mensaje de bienvenida.', 'ai-chatbot-pro'); ?></span>
+                </td>
+            </tr>
         </table>
 
         <div style="margin-top: 20px; padding: 15px; background-color: #f7f7f7; border-left: 4px solid #7e8993;">
@@ -179,6 +187,7 @@ class AICP_Pro_Features {
         $current_settings['auto_open_enabled'] = !empty($new_settings['auto_open_enabled']) ? 1 : 0;
         $current_settings['auto_open_delay'] = isset($new_settings['auto_open_delay']) ? max(0, intval($new_settings['auto_open_delay'])) : 0;
         $current_settings['auto_open_duration'] = isset($new_settings['auto_open_duration']) ? max(0, intval($new_settings['auto_open_duration'])) : 0;
+        $current_settings['auto_open_message'] = isset($new_settings['auto_open_message']) ? sanitize_textarea_field($new_settings['auto_open_message']) : '';
 
         update_post_meta($post_id, '_aicp_assistant_settings', $current_settings);
     }
