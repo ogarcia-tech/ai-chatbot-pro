@@ -157,22 +157,27 @@ class AICP_Frontend_Loader {
         $source = sanitize_text_field($lead_data['source'] ?? 'chatbot_detection');
 
         $sanitized_lead_data = [
-            'email'       => sanitize_email($lead_data['email'] ?? ''),
-            'name'        => sanitize_text_field($lead_data['name'] ?? ''),
-            'phone'       => sanitize_text_field($lead_data['phone'] ?? ''),
-            'website'     => esc_url_raw($lead_data['website'] ?? ''),
-            'is_complete' => !empty($lead_data['isComplete']),
-            'collected_at'=> current_time('mysql'),
-            'source'      => $source
+            'email'        => sanitize_email($lead_data['email'] ?? ''),
+            'name'         => sanitize_text_field($lead_data['name'] ?? ''),
+            'phone'        => sanitize_text_field($lead_data['phone'] ?? ''),
+            'website'      => esc_url_raw($lead_data['website'] ?? ''),
+            'collected_at' => current_time('mysql'),
+            'source'       => $source,
         ];
 
-        // Guardar datos en la tabla de logs
+        $missing_fields = AICP_Lead_Manager::get_missing_fields($sanitized_lead_data, $assistant_id);
+        if (!empty($missing_fields)) {
+            wp_send_json_error([
+                'message'        => AICP_Lead_Manager::get_missing_data_message($missing_fields, $assistant_id),
+                'missing_fields' => $missing_fields,
+            ]);
+        }
+
+        $sanitized_lead_data['is_complete'] = true;
+
         global $wpdb;
 
-        $status = $sanitized_lead_data['is_complete'] ? 'complete' : 'partial';
-        if ($sanitized_lead_data['source'] === 'button') {
-            $status = 'button';
-        }
+        $status = ($sanitized_lead_data['source'] === 'button') ? 'button' : 'complete';
 
         $updated = $wpdb->update(
             $wpdb->prefix . 'aicp_chat_logs',
@@ -212,23 +217,24 @@ class AICP_Frontend_Loader {
             wp_send_json_error(['message' => __('Datos incompletos.', 'ai-chatbot-pro')]);
         }
 
-        $lead_info = AICP_Lead_Manager::detect_contact_data($conversation);
+        $lead_info = AICP_Lead_Manager::detect_contact_data($conversation, $assistant_id);
 
-        if (!$lead_info['has_lead']) {
-            wp_send_json_error(['message' => __('No se detectó información de contacto.', 'ai-chatbot-pro')]);
+        if (!$lead_info['is_complete']) {
+            wp_send_json_error([
+                'message' => AICP_Lead_Manager::get_missing_data_message($lead_info['missing_fields'], $assistant_id),
+                'missing_fields' => $lead_info['missing_fields'],
+            ]);
         }
 
         global $wpdb;
         $table = $wpdb->prefix . 'aicp_chat_logs';
-
-        $lead_status = $lead_info['is_complete'] ? 'complete' : 'partial';
 
         $updated = $wpdb->update(
             $table,
             [
                 'has_lead'   => 1,
                 'lead_data'  => wp_json_encode($lead_info['data'], JSON_UNESCAPED_UNICODE),
-                'lead_status'=> $lead_status
+                'lead_status'=> 'complete'
             ],
             ['id' => $log_id],
             ['%d','%s','%s'],
@@ -236,7 +242,7 @@ class AICP_Frontend_Loader {
         );
 
         if ($updated !== false) {
-            do_action('aicp_lead_detected', $lead_info['data'], $assistant_id, $log_id, $lead_status);
+            do_action('aicp_lead_detected', $lead_info['data'], $assistant_id, $log_id, 'complete');
             wp_send_json_success(['lead' => $lead_info['data']]);
         } else {
             wp_send_json_error(['message' => __('Error al guardar el lead.', 'ai-chatbot-pro')]);

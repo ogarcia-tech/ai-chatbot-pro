@@ -77,11 +77,18 @@ class AICP_Shortcode_Handler {
 
         $quick_replies = array_filter($s['quick_replies'] ?? []);
 
-        
+        $lead_auto_collect  = !empty($s['lead_auto_collect']);
+        $calendar_url       = !empty($s['calendar_url']) ? esc_url($s['calendar_url']) : '';
+        $auto_open_enabled  = !empty($s['auto_open_enabled']);
+        $auto_open_delay    = isset($s['auto_open_delay']) ? max(0, intval($s['auto_open_delay'])) : 0;
+        $auto_open_duration = isset($s['auto_open_duration']) ? max(0, intval($s['auto_open_duration'])) : 0;
+        $auto_open_message  = isset($s['auto_open_message']) ? sanitize_textarea_field($s['auto_open_message']) : '';
+
         wp_localize_script('aicp-chatbot-script', 'aicp_chatbot_params', [
             'ajax_url'           => admin_url('admin-ajax.php'),
             'nonce'              => wp_create_nonce('aicp_chat_nonce'),
             'feedback_nonce'     => wp_create_nonce('aicp_feedback_nonce'),
+            'calendar_nonce'     => wp_create_nonce('aicp_calendar_nonce'),
             'assistant_id'       => $assistant_id,
             'header_title'       => esc_html(get_the_title($assistant_id)),
             'bot_avatar'         => $bot_avatar,
@@ -90,6 +97,15 @@ class AICP_Shortcode_Handler {
             'position'           => $s['position'] ?? 'br',
 
             'quick_replies' => $quick_replies,
+
+            'lead_auto_collect'  => $lead_auto_collect,
+            'calendar_url'       => $calendar_url,
+            'auto_open'          => [
+                'enabled'  => $auto_open_enabled,
+                'delay'    => $auto_open_delay,
+                'duration' => $auto_open_duration,
+                'message'  => $auto_open_message,
+            ],
 
         ]);
     }

@@ -265,9 +265,10 @@ class AICP_Ajax_Handler {
         $full_history = $history;
         $full_history[] = ['role' => 'assistant', 'content' => $reply];
 
-        $lead_info = AICP_Lead_Manager::detect_contact_data($full_history);
+        $lead_info = AICP_Lead_Manager::detect_contact_data($full_history, $assistant_id, $s);
 
-        $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $full_history, $lead_info['data']);
+        $lead_payload = $lead_info['is_complete'] ? $lead_info['data'] : [];
+        $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $full_history, $lead_payload);
 
         $response_payload = [
             'reply'          => $reply,
@@ -376,7 +377,8 @@ class AICP_Ajax_Handler {
                         'email' => $parsed['email'] ?? '',
                         'phone' => $parsed['phone'] ?? ''
                     ];
-                    if (!empty($lead_data['email']) || !empty($lead_data['phone'])) {
+                    $missing_fields = AICP_Lead_Manager::get_missing_fields($lead_data, $assistant_id);
+                    if (empty($missing_fields)) {
                         $lead_status = 'complete';
                     }
                 }
@@ -391,9 +393,9 @@ class AICP_Ajax_Handler {
         $wpdb->update(
             $table_name,
             [
-                'has_lead'   => $lead_status === 'complete' ? 1 : 0,
-                'lead_data'  => wp_json_encode($lead_data, JSON_UNESCAPED_UNICODE),
-                'lead_status'=> $lead_status
+                'has_lead'    => $lead_status === 'complete' ? 1 : 0,
+                'lead_data'   => wp_json_encode($lead_data, JSON_UNESCAPED_UNICODE),
+                'lead_status' => $lead_status
             ],
             ['id' => $new_log_id],
             ['%d', '%s', '%s'],
@@ -402,7 +404,12 @@ class AICP_Ajax_Handler {
 
         do_action('aicp_lead_detected', $lead_data, $assistant_id, $new_log_id, $lead_status);
 
-        wp_send_json_success(['status' => $lead_status]);
+        $response = ['status' => $lead_status];
+        if ('complete' !== $lead_status) {
+            $response['missing_fields'] = $missing_fields ?? AICP_Lead_Manager::get_missing_fields($lead_data, $assistant_id);
+        }
+
+        wp_send_json_success($response);
     }
 
     public static function handle_submit_feedback() {

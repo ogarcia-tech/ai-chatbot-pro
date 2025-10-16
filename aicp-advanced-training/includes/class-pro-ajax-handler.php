@@ -165,9 +165,10 @@ class AICP_Pro_Ajax_Handler {
         $full_history = $history;
         $full_history[] = ['role' => 'assistant', 'content' => $reply];
 
-        $lead_info = AICP_Lead_Manager::detect_contact_data($full_history);
+        $lead_info = AICP_Lead_Manager::detect_contact_data($full_history, $assistant_id, $assistant_settings);
 
-        $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $full_history, $lead_info['data']);
+        $lead_payload = $lead_info['is_complete'] ? $lead_info['data'] : [];
+        $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $full_history, $lead_payload);
 
         wp_send_json_success([
             'reply'          => $reply,
