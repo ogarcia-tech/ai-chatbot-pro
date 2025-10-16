@@ -25,6 +25,15 @@ function aicp_render_analytics_page() {
 
     $assistant_id = isset($_GET['post']) ? intval($_GET['post']) : 0;
     $stats = class_exists('AICP_Lead_Manager') ? AICP_Lead_Manager::get_lead_stats($assistant_id) : [];
+    $lead_stats = wp_parse_args($stats, [
+        'total_leads'    => 0,
+        'complete_leads' => 0,
+        'partial_leads'  => 0,
+        'calendar_leads' => 0,
+        'button_leads'   => 0,
+        'form_leads'     => 0,
+        'failed_leads'   => 0,
+    ]);
     $total_conversations = $wpdb->get_var("SELECT COUNT(DISTINCT session_id) FROM $logs_table");
     $total_leads = $wpdb->get_var("SELECT COUNT(*) FROM $logs_table WHERE has_lead = 1");
     $conversion_rate = $total_conversations > 0 ? round(($total_leads / $total_conversations) * 100, 2) : 0;
@@ -38,6 +47,9 @@ function aicp_render_analytics_page() {
             <div class="aicp-stat-box"><h2><?php echo esc_html($total_conversations); ?></h2><p><?php _e('Conversaciones Totales', 'ai-chatbot-pro'); ?></p></div>
             <div class="aicp-stat-box"><h2><?php echo esc_html($total_leads); ?></h2><p><?php _e('Leads Capturados', 'ai-chatbot-pro'); ?></p></div>
             <div class="aicp-stat-box"><h2><?php echo esc_html($conversion_rate); ?>%</h2><p><?php _e('Tasa de Conversión', 'ai-chatbot-pro'); ?></p></div>
+            <div class="aicp-stat-box"><h2><?php echo esc_html($lead_stats['complete_leads']); ?></h2><p><?php _e('Leads Completos', 'ai-chatbot-pro'); ?></p></div>
+            <div class="aicp-stat-box"><h2><?php echo esc_html($lead_stats['partial_leads']); ?></h2><p><?php _e('Leads Incompletos', 'ai-chatbot-pro'); ?></p></div>
+            <div class="aicp-stat-box"><h2><?php echo esc_html($lead_stats['calendar_leads']); ?></h2><p><?php _e('Reservas por Calendario', 'ai-chatbot-pro'); ?></p></div>
         </div>
 
         <div class="aicp-analytics-section">
@@ -57,8 +69,5 @@ function aicp_render_analytics_page() {
             <?php endif; ?>
         </div>
     </div>
-
     <?php
-echo '<div class="aicp-stat-box"><h2>' . esc_html($stats['calendar_leads']) . '</h2><p>' . __('Leads por Calendario', 'ai-chatbot-pro') . '</p></div>';
-   
 }
