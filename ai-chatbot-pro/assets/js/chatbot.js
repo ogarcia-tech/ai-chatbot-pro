@@ -425,7 +425,8 @@ function renderQuickReplies() {
                 nonce: params.nonce,
                 assistant_id: params.assistant_id,
                 log_id: logId,
-                conversation: conversationHistory
+                conversation: conversationHistory,
+                session_id: sessionId
             },
             complete: () => {
                 // Resetear estado sin recargar

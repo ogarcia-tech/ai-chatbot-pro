@@ -69,6 +69,111 @@ class AICP_Ajax_Handler {
         return $log_id;
     }
 
+    private static function ensure_session_id($session_id = '') {
+        $session_id = is_string($session_id) ? sanitize_text_field($session_id) : '';
+
+        if (empty($session_id)) {
+            $session_id = 'aicp_' . wp_generate_uuid4();
+        }
+
+        return $session_id;
+    }
+
+    private static function sanitize_lead_payload($lead_input) {
+        $sanitized = [];
+
+        if (!is_array($lead_input)) {
+            return $sanitized;
+        }
+
+        foreach ($lead_input as $key => $value) {
+            if (is_scalar($value)) {
+                $sanitized[sanitize_key($key)] = sanitize_text_field($value);
+            }
+        }
+
+        return $sanitized;
+    }
+
+    private static function call_message_webhook($assistant_id, $settings, $session_id, $conversation, $page_context, $lead_data, $system_prompt) {
+        $webhook_url = isset($settings['forward_webhook_url']) ? esc_url_raw($settings['forward_webhook_url']) : '';
+
+        if (empty($webhook_url)) {
+            return new WP_Error('invalid_webhook', __('No se ha configurado una URL de webhook válida.', 'ai-chatbot-pro'));
+        }
+
+        $last_user_message = '';
+        for ($i = count($conversation) - 1; $i >= 0; $i--) {
+            if (isset($conversation[$i]['role']) && 'user' === $conversation[$i]['role']) {
+                $last_user_message = $conversation[$i]['content'] ?? '';
+                break;
+            }
+        }
+
+        $payload = [
+            'conversation_id' => $session_id,
+            'assistant_id'    => $assistant_id,
+            'message'         => $last_user_message,
+            'history'         => $conversation,
+            'system_prompt'   => $system_prompt,
+            'site'            => [
+                'url'  => home_url(),
+                'name' => get_bloginfo('name'),
+            ],
+            'meta'            => [
+                'page_context' => $page_context,
+                'lead_data'    => $lead_data,
+            ],
+        ];
+
+        $headers = ['Content-Type' => 'application/json'];
+        if (!empty($settings['forward_webhook_secret'])) {
+            $headers['X-AICP-Webhook-Secret'] = sanitize_text_field($settings['forward_webhook_secret']);
+        }
+
+        $timeout = isset($settings['forward_webhook_timeout']) ? max(5, intval($settings['forward_webhook_timeout'])) : 15;
+
+        $response = wp_remote_post($webhook_url, [
+            'headers' => $headers,
+            'body'    => wp_json_encode($payload),
+            'timeout' => $timeout,
+        ]);
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $status = wp_remote_retrieve_response_code($response);
+        if ($status >= 400) {
+            return new WP_Error(
+                'webhook_http_error',
+                sprintf(__('El webhook devolvió un código HTTP %d.', 'ai-chatbot-pro'), $status)
+            );
+        }
+
+        $body = wp_remote_retrieve_body($response);
+        $data = json_decode($body, true);
+
+        if (!is_array($data)) {
+            return new WP_Error('webhook_invalid_json', __('El webhook respondió con un JSON inválido.', 'ai-chatbot-pro'));
+        }
+
+        if (!isset($data['reply']) || !is_string($data['reply']) || '' === trim($data['reply'])) {
+            return new WP_Error('webhook_missing_reply', __('El webhook no devolvió el campo "reply" con el texto de respuesta.', 'ai-chatbot-pro'));
+        }
+
+        $result = [
+            'reply'     => sanitize_textarea_field($data['reply']),
+            'metadata'  => [],
+        ];
+
+        if (isset($data['metadata']) && is_array($data['metadata'])) {
+            $result['metadata'] = $data['metadata'];
+        }
+
+        return $result;
+    }
+
     public static function handle_chat_request() {
         check_ajax_referer('aicp_chat_nonce', 'nonce');
 
@@ -87,64 +192,96 @@ class AICP_Ajax_Handler {
         $s = get_post_meta($assistant_id, '_aicp_assistant_settings', true);
         if (!is_array($s)) { $s = []; }
 
-        $api_key = $global_settings['api_key'] ?? '';
-        if (empty($api_key)) { 
-            wp_send_json_error(['message' => __('La API Key de OpenAI no está configurada.', 'ai-chatbot-pro')]); 
+        $incoming_session_id = isset($_POST['session_id']) ? wp_unslash($_POST['session_id']) : '';
+        $session_id = self::ensure_session_id($incoming_session_id);
+
+        $lead_payload = [];
+        if (isset($_POST['lead_data'])) {
+            $lead_payload = self::sanitize_lead_payload(wp_unslash($_POST['lead_data']));
         }
 
         $system_prompt = AICP_Prompt_Builder::build($s, $page_context);
 
-        
         $short_term_memory = array_slice($history, -10);
         $conversation = [['role' => 'system', 'content' => $system_prompt]];
-        foreach ($short_term_memory as $item) { 
-            if (isset($item['role'], $item['content'])) { 
-                $conversation[] = ['role' => sanitize_key($item['role']), 'content' => sanitize_textarea_field($item['content'])]; 
-            } 
+        foreach ($short_term_memory as $item) {
+            if (isset($item['role'], $item['content'])) {
+                $conversation[] = ['role' => sanitize_key($item['role']), 'content' => sanitize_textarea_field($item['content'])];
+            }
         }
-        
-        $api_url = 'https://api.openai.com/v1/chat/completions';
-        $model = $s['model'] ?? array_key_first(AICP_AVAILABLE_MODELS);
-        if (!isset(AICP_AVAILABLE_MODELS[$model])) {
-            $model = array_key_first(AICP_AVAILABLE_MODELS);
-        }
-        $api_args = [
-            'method'  => 'POST',
-            'headers' => ['Content-Type'  => 'application/json', 'Authorization' => 'Bearer ' . $api_key],
-            'body'    => wp_json_encode(['model' => $model, 'messages' => $conversation]),
-            'timeout' => 60,
-        ];
-        $response = wp_remote_post($api_url, $api_args);
 
-        if (is_wp_error($response)) { 
-            wp_send_json_error(['message' => $response->get_error_message()]); 
-        }
-        
-        $body = wp_remote_retrieve_body($response);
-        $data = json_decode($body, true);
+        $use_webhook = !empty($s['forward_to_webhook']) && !empty($s['forward_webhook_url']);
 
-        if (isset($data['choices'][0]['message']['content'])) {
-            $reply = $data['choices'][0]['message']['content'];
+        $reply = '';
+        $metadata = [];
 
-            $full_history = $history;
-            $full_history[] = ['role' => 'assistant', 'content' => $reply];
+        if ($use_webhook) {
+            $webhook_result = self::call_message_webhook($assistant_id, $s, $session_id, $conversation, $page_context, $lead_payload, $system_prompt);
 
-            // Llamada al Lead Manager para detectar información de contacto.
-            $lead_info = AICP_Lead_Manager::detect_contact_data($full_history);
+            if (is_wp_error($webhook_result)) {
+                wp_send_json_error(['message' => $webhook_result->get_error_message()]);
+            }
 
-            $session_id = session_id() ?: uniqid('aicp_');
-            // La función save_conversation ahora se encarga de llamar a la acción para procesar el lead.
-            $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $full_history, $lead_info['data']);
-
-            wp_send_json_success([
-                'reply'          => trim($reply),
-                'log_id'         => $new_log_id,
-                'lead_status'    => $lead_info['is_complete'] ? 'complete' : ($lead_info['has_lead'] ? 'partial' : 'none'),
-                'missing_fields' => $lead_info['missing_fields'],
-            ]);
+            $reply    = $webhook_result['reply'];
+            $metadata = $webhook_result['metadata'] ?? [];
         } else {
-            wp_send_json_error(['message' => $data['error']['message'] ?? __('Respuesta inesperada.', 'ai-chatbot-pro')]);
+            $api_key = $global_settings['api_key'] ?? '';
+            if (empty($api_key)) {
+                wp_send_json_error(['message' => __('La API Key de OpenAI no está configurada.', 'ai-chatbot-pro')]);
+            }
+
+            $api_url = 'https://api.openai.com/v1/chat/completions';
+            $model = $s['model'] ?? array_key_first(AICP_AVAILABLE_MODELS);
+            if (!isset(AICP_AVAILABLE_MODELS[$model])) {
+                $model = array_key_first(AICP_AVAILABLE_MODELS);
+            }
+            $api_args = [
+                'method'  => 'POST',
+                'headers' => ['Content-Type'  => 'application/json', 'Authorization' => 'Bearer ' . $api_key],
+                'body'    => wp_json_encode(['model' => $model, 'messages' => $conversation]),
+                'timeout' => 60,
+            ];
+            $response = wp_remote_post($api_url, $api_args);
+
+            if (is_wp_error($response)) {
+                wp_send_json_error(['message' => $response->get_error_message()]);
+            }
+
+            $body = wp_remote_retrieve_body($response);
+            $data = json_decode($body, true);
+
+            if (!isset($data['choices'][0]['message']['content'])) {
+                wp_send_json_error(['message' => $data['error']['message'] ?? __('Respuesta inesperada.', 'ai-chatbot-pro')]);
+            }
+
+            $reply = $data['choices'][0]['message']['content'];
         }
+
+        $reply = trim($reply);
+        if ('' === $reply) {
+            wp_send_json_error(['message' => __('La respuesta generada está vacía.', 'ai-chatbot-pro')]);
+        }
+
+        $full_history = $history;
+        $full_history[] = ['role' => 'assistant', 'content' => $reply];
+
+        $lead_info = AICP_Lead_Manager::detect_contact_data($full_history);
+
+        $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $full_history, $lead_info['data']);
+
+        $response_payload = [
+            'reply'          => $reply,
+            'log_id'         => $new_log_id,
+            'lead_status'    => $lead_info['is_complete'] ? 'complete' : ($lead_info['has_lead'] ? 'partial' : 'none'),
+            'missing_fields' => $lead_info['missing_fields'],
+            'session_id'     => $session_id,
+        ];
+
+        if (!empty($metadata)) {
+            $response_payload['webhook_metadata'] = $metadata;
+        }
+
+        wp_send_json_success($response_payload);
         // --- FIN DE LA MODIFICACIÓN ---
     }
     
@@ -186,6 +323,7 @@ class AICP_Ajax_Handler {
         $assistant_id = isset($_POST['assistant_id']) ? absint($_POST['assistant_id']) : 0;
         $log_id       = isset($_POST['log_id']) ? absint($_POST['log_id']) : 0;
         $conversation = isset($_POST['conversation']) && is_array($_POST['conversation']) ? wp_unslash($_POST['conversation']) : [];
+        $incoming_session_id = isset($_POST['session_id']) ? wp_unslash($_POST['session_id']) : '';
 
         if (!$assistant_id || empty($conversation)) {
             wp_send_json_error(['message' => __('Datos inválidos.', 'ai-chatbot-pro')]);
@@ -245,7 +383,7 @@ class AICP_Ajax_Handler {
             }
         }
 
-        $session_id = session_id() ?: uniqid('aicp_');
+        $session_id = self::ensure_session_id($incoming_session_id);
         $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $conversation);
 
         global $wpdb;
