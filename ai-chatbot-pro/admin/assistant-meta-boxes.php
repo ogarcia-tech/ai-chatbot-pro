@@ -16,6 +16,7 @@ function aicp_add_meta_boxes() {
         echo '<a href="#aicp-tab-instructions" class="nav-tab nav-tab-active">' . __('Instrucciones', 'ai-chatbot-pro') . '</a>';
         echo '<a href="#aicp-tab-design" class="nav-tab">' . __('Diseño', 'ai-chatbot-pro') . '</a>';
         echo '<a href="#aicp-tab-leads" class="nav-tab">' . __('Leads', 'ai-chatbot-pro') . '</a>';
+        echo '<a href="#aicp-tab-integrations" class="nav-tab">' . __('Integraciones', 'ai-chatbot-pro') . '</a>';
         
         // Lógica corregida para mostrar la pestaña PRO o el mensaje de venta.
         if (class_exists('AICP_Pro_Features')) {
@@ -152,6 +153,9 @@ function aicp_render_main_meta_box($post) {
     <div id="aicp-tab-leads" class="aicp-tab-content" style="display:none;">
         <?php aicp_render_leads_tab($post->ID, $v); ?>
     </div>
+    <div id="aicp-tab-integrations" class="aicp-tab-content" style="display:none;">
+        <?php aicp_render_integrations_tab($post->ID, $v); ?>
+    </div>
 
     <?php // Lógica corregida y limpia para mostrar el contenido PRO o el mensaje de venta.
     if (class_exists('AICP_Pro_Features')) : ?>
@@ -253,6 +257,36 @@ function aicp_render_preview_panel() {
         </div>
     </div>
     <?php
+}
+
+function aicp_render_integrations_tab($assistant_id, $v) {
+    $enabled     = !empty($v['forward_to_webhook']);
+    $webhook_url = esc_url($v['forward_webhook_url'] ?? '');
+    $secret      = sanitize_text_field($v['forward_webhook_secret'] ?? '');
+    $timeout     = isset($v['forward_webhook_timeout']) ? max(5, intval($v['forward_webhook_timeout'])) : 15;
+
+    echo '<h4>' . __('Webhook de Mensajes', 'ai-chatbot-pro') . '</h4>';
+    echo '<table class="form-table"><tbody>';
+
+    echo '<tr><th><label for="aicp_forward_to_webhook">' . __('Reenviar cada mensaje a un webhook externo', 'ai-chatbot-pro') . '</label></th>';
+    echo '<td><label><input type="checkbox" name="aicp_settings[forward_to_webhook]" id="aicp_forward_to_webhook" value="1" ' . checked($enabled, true, false) . '> ' . __('Activar', 'ai-chatbot-pro') . '</label>';
+    echo '<p class="description">' . __('Al activarlo, el chatbot enviará el mensaje del usuario y el contexto a la URL configurada antes de responder.', 'ai-chatbot-pro') . '</p></td></tr>';
+
+    echo '<tr><th><label for="aicp_forward_webhook_url">' . __('URL del webhook', 'ai-chatbot-pro') . '</label></th>';
+    echo '<td><input type="url" name="aicp_settings[forward_webhook_url]" id="aicp_forward_webhook_url" value="' . esc_attr($webhook_url) . '" class="regular-text" placeholder="https://tuservidor.com/webhook/chatbot" />';
+    echo '<p class="description">' . __('Utiliza la URL que n8n (u otro servicio) genere para recibir las peticiones.', 'ai-chatbot-pro') . '</p></td></tr>';
+
+    echo '<tr><th><label for="aicp_forward_webhook_secret">' . __('Cabecera secreta opcional', 'ai-chatbot-pro') . '</label></th>';
+    echo '<td><input type="text" name="aicp_settings[forward_webhook_secret]" id="aicp_forward_webhook_secret" value="' . esc_attr($secret) . '" class="regular-text" placeholder="mi-token-secreto" />';
+    echo '<p class="description">' . __('Si defines un valor, el plugin añadirá la cabecera <code>X-AICP-Webhook-Secret</code> en cada solicitud para que puedas validarla en n8n.', 'ai-chatbot-pro') . '</p></td></tr>';
+
+    echo '<tr><th><label for="aicp_forward_webhook_timeout">' . __('Tiempo de espera', 'ai-chatbot-pro') . '</label></th>';
+    echo '<td><input type="number" min="5" max="120" name="aicp_settings[forward_webhook_timeout]" id="aicp_forward_webhook_timeout" value="' . esc_attr($timeout) . '" class="small-text" /> ' . __('segundos', 'ai-chatbot-pro');
+    echo '<p class="description">' . __('El chatbot mostrará el error si el webhook no responde a tiempo.', 'ai-chatbot-pro') . '</p></td></tr>';
+
+    echo '</tbody></table>';
+
+    echo '<p class="description">' . __('Consulta la guía de integración con n8n incluida en la carpeta de documentación del plugin para ver ejemplos de payloads y respuestas esperadas.', 'ai-chatbot-pro') . '</p>';
 }
 
 function aicp_render_leads_tab($assistant_id, $v) {
@@ -446,6 +480,13 @@ function aicp_save_meta_box_data($post_id) {
     $current['lead_email']        = isset($s['lead_email']) ? sanitize_email($s['lead_email']) : '';
     $current['webhook_url']       = isset($s['webhook_url']) ? esc_url_raw($s['webhook_url']) : '';
     $current['calendar_url']      = isset($s['calendar_url']) ? esc_url_raw($s['calendar_url']) : '';
+
+    // Integraciones
+    $current['forward_to_webhook']      = !empty($s['forward_to_webhook']) ? 1 : 0;
+    $current['forward_webhook_url']     = isset($s['forward_webhook_url']) ? esc_url_raw($s['forward_webhook_url']) : '';
+    $current['forward_webhook_secret']  = isset($s['forward_webhook_secret']) ? sanitize_text_field($s['forward_webhook_secret']) : '';
+    $timeout_value                      = isset($s['forward_webhook_timeout']) ? intval($s['forward_webhook_timeout']) : 15;
+    $current['forward_webhook_timeout'] = max(5, min(120, $timeout_value));
 
     // Guardar los nuevos campos de lead dinámicos
     $current['lead_fields'] = [];
