@@ -237,8 +237,182 @@ class AICP_Lead_Manager {
     /**
      * Resto de funciones sin modificar...
      */
-    public static function handle_check_lead_status() { /* ...código original... */ }
-    public static function handle_calendar_lead() { /* ...código original... */ }
-    public static function get_lead_stats($assistant_id) { /* ...código original... */ }
-    public static function get_missing_data_message($missing_fields) { /* ...código original... */ }
+    private static function get_required_fields() {
+        return ['name', 'email', 'phone', 'website'];
+    }
+
+    private static function get_missing_fields_from_data($lead_data) {
+        $lead_data = is_array($lead_data) ? $lead_data : [];
+        $missing = [];
+
+        foreach (self::get_required_fields() as $field) {
+            if (empty($lead_data[$field])) {
+                $missing[] = $field;
+            }
+        }
+
+        return $missing;
+    }
+
+    public static function handle_check_lead_status() {
+        check_ajax_referer('aicp_chat_nonce', 'nonce');
+
+        $log_id = isset($_POST['log_id']) ? absint($_POST['log_id']) : 0;
+        if (!$log_id) {
+            wp_send_json_error(['message' => __('ID de conversación inválido.', 'ai-chatbot-pro')]);
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'aicp_chat_logs';
+
+        $row = $wpdb->get_row($wpdb->prepare("SELECT lead_status, lead_data FROM {$table} WHERE id = %d", $log_id));
+        if (!$row) {
+            wp_send_json_error(['message' => __('No se encontró el registro solicitado.', 'ai-chatbot-pro')]);
+        }
+
+        $lead_data = json_decode($row->lead_data ?? '', true);
+        if (!is_array($lead_data)) {
+            $lead_data = [];
+        }
+
+        $status = $row->lead_status ?: 'none';
+        $missing_fields = self::get_missing_fields_from_data($lead_data);
+
+        wp_send_json_success([
+            'status'          => $status,
+            'lead_data'       => $lead_data,
+            'missing_fields'  => $missing_fields,
+            'message'         => self::get_missing_data_message($missing_fields),
+        ]);
+    }
+
+    public static function handle_calendar_lead() {
+        check_ajax_referer('aicp_calendar_nonce', 'nonce');
+
+        $log_id = isset($_POST['log_id']) ? absint($_POST['log_id']) : 0;
+        $assistant_id = isset($_POST['assistant_id']) ? absint($_POST['assistant_id']) : 0;
+
+        if (!$log_id || !$assistant_id) {
+            wp_send_json_error(['message' => __('Datos inválidos para registrar el lead de calendario.', 'ai-chatbot-pro')]);
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'aicp_chat_logs';
+
+        $row = $wpdb->get_row($wpdb->prepare("SELECT lead_data FROM {$table} WHERE id = %d AND assistant_id = %d", $log_id, $assistant_id));
+        if (!$row) {
+            wp_send_json_error(['message' => __('No se encontró la conversación indicada.', 'ai-chatbot-pro')]);
+        }
+
+        $lead_data = json_decode($row->lead_data ?? '', true);
+        if (!is_array($lead_data)) {
+            $lead_data = [];
+        }
+
+        $lead_data['source'] = 'calendar';
+        $lead_data['captured_at'] = current_time('mysql');
+
+        $updated = $wpdb->update(
+            $table,
+            [
+                'has_lead'    => 1,
+                'lead_data'   => wp_json_encode($lead_data, JSON_UNESCAPED_UNICODE),
+                'lead_status' => 'calendar',
+            ],
+            ['id' => $log_id],
+            ['%d', '%s', '%s'],
+            ['%d']
+        );
+
+        if (false === $updated) {
+            wp_send_json_error(['message' => __('No se pudo actualizar la conversación.', 'ai-chatbot-pro')]);
+        }
+
+        do_action('aicp_lead_detected', $lead_data, $assistant_id, $log_id, 'calendar');
+
+        wp_send_json_success([
+            'message'        => __('Lead marcado correctamente.', 'ai-chatbot-pro'),
+            'lead_status'    => 'calendar',
+            'lead_data'      => $lead_data,
+            'missing_fields' => self::get_missing_fields_from_data($lead_data),
+        ]);
+    }
+
+    public static function get_lead_stats($assistant_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'aicp_chat_logs';
+
+        $where_sql = 'WHERE has_lead = 1';
+        if ($assistant_id) {
+            $where_sql .= $wpdb->prepare(' AND assistant_id = %d', $assistant_id);
+        }
+
+        $stats = [
+            'total_leads'     => 0,
+            'complete_leads'  => 0,
+            'partial_leads'   => 0,
+            'calendar_leads'  => 0,
+            'button_leads'    => 0,
+            'form_leads'      => 0,
+            'failed_leads'    => 0,
+        ];
+
+        $stats['total_leads'] = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table} {$where_sql}");
+
+        $rows = $wpdb->get_results("SELECT lead_status, COUNT(*) AS total FROM {$table} {$where_sql} GROUP BY lead_status", ARRAY_A);
+        foreach ((array) $rows as $row) {
+            $status = $row['lead_status'] ?? 'unknown';
+            $count  = isset($row['total']) ? (int) $row['total'] : 0;
+
+            switch ($status) {
+                case 'complete':
+                    $stats['complete_leads'] = $count;
+                    break;
+                case 'partial':
+                    $stats['partial_leads'] = $count;
+                    break;
+                case 'calendar':
+                    $stats['calendar_leads'] = $count;
+                    break;
+                case 'button':
+                    $stats['button_leads'] = $count;
+                    break;
+                case 'form':
+                    $stats['form_leads'] = $count;
+                    break;
+                case 'failed':
+                    $stats['failed_leads'] = $count;
+                    break;
+            }
+        }
+
+        return $stats;
+    }
+
+    public static function get_missing_data_message($missing_fields) {
+        if (empty($missing_fields)) {
+            return __('¡Perfecto! Tenemos toda tu información de contacto.', 'ai-chatbot-pro');
+        }
+
+        $labels = [
+            'name'    => __('nombre', 'ai-chatbot-pro'),
+            'email'   => __('email', 'ai-chatbot-pro'),
+            'phone'   => __('teléfono', 'ai-chatbot-pro'),
+            'website' => __('sitio web', 'ai-chatbot-pro'),
+        ];
+
+        $translated = [];
+        foreach ($missing_fields as $field) {
+            $translated[] = $labels[$field] ?? $field;
+        }
+
+        if (count($translated) > 1) {
+            $last = array_pop($translated);
+            $missing_text = implode(', ', $translated) . ' ' . __('y', 'ai-chatbot-pro') . ' ' . $last;
+        } else {
+            $missing_text = $translated[0];
+        }
+
+        return sprintf(__('Necesitamos tu %s para completar el registro.', 'ai-chatbot-pro'), $missing_text);
+    }
 }
