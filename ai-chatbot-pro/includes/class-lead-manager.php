@@ -45,52 +45,52 @@ class AICP_Lead_Manager {
     /**
      * Detectar datos de contacto en una conversación
      */
-    public static function detect_contact_data($conversation) {
-        $lead_data = [];
-        $has_contact = false;
-        
+    public static function detect_contact_data($conversation, $assistant_id = 0, $assistant_settings = null) {
+        $field_definitions = self::get_lead_field_definitions($assistant_id, $assistant_settings);
+        $required_fields   = self::extract_required_field_names($field_definitions);
+        $lead_data         = [];
+        $has_partial_data  = false;
+
         if (!is_array($conversation)) {
-            return ['has_lead' => false, 'data' => [], 'missing_fields' => ['name', 'email', 'phone', 'website']];
+            return [
+                'has_lead'       => false,
+                'is_complete'    => false,
+                'data'           => [],
+                'missing_fields' => $required_fields,
+            ];
         }
 
-        // Filtramos para obtener solo los mensajes del usuario.
         $user_messages = array_filter($conversation, function($message) {
             return isset($message['role']) && $message['role'] === 'user';
         });
-        // Concatenamos solo el texto del usuario para el análisis.
         $user_text = implode("\n", array_column($user_messages, 'content'));
         $common_email_domains = [
-            'gmail.com', 'yahoo.es', 'yahoo.com', 'hotmail.com', 'hotmail.es', 'outlook.com', 
+            'gmail.com', 'yahoo.es', 'yahoo.com', 'hotmail.com', 'hotmail.es', 'outlook.com',
             'outlook.es', 'msn.com', 'live.com', 'aol.com', 'icloud.com', 'me.com', 'mac.com'
         ];
-        
-        // Detectar emails del texto del usuario
+
         if (preg_match(self::$email_pattern, $user_text, $matches)) {
             $lead_data['email'] = sanitize_email($matches[0]);
-            $has_contact = true;
+            $has_partial_data   = true;
         }
-        
-        // Detectar teléfonos del texto del usuario
+
         if (!isset($lead_data['phone'])) {
             foreach (self::$phone_patterns as $pattern) {
                 if (preg_match($pattern, $user_text, $matches)) {
                     $phone = preg_replace('/[^\d+]/', '', $matches[0]);
                     if (strlen($phone) >= 9) {
                         $lead_data['phone'] = sanitize_text_field($matches[0]);
-                        $has_contact = true;
+                        $has_partial_data   = true;
                         break;
                     }
                 }
             }
         }
-        
-        // Detectar URLs/websites del texto del usuario
+
         if (preg_match_all(self::$url_pattern, $user_text, $matches)) {
             foreach ($matches[0] as $potential_url) {
-                // Limpiamos la URL para compararla con nuestra lista negra.
                 $cleaned_url = preg_replace('/^(https?:\/\/)?(www\.)?/', '', rtrim($potential_url, '/'));
-                
-                // Si la URL encontrada NO está en nuestra lista de dominios de email, la aceptamos.
+
                 if (!in_array($cleaned_url, $common_email_domains)) {
                     $url = $potential_url;
                     if (!preg_match('/^https?:\/\//', $url)) {
@@ -98,29 +98,30 @@ class AICP_Lead_Manager {
                     }
                     if (filter_var($url, FILTER_VALIDATE_URL)) {
                         $lead_data['website'] = esc_url_raw($url);
-                        break; // Nos quedamos con la primera web válida que no sea un email.
+                        $has_partial_data     = true;
+                        break;
                     }
                 }
             }
         }
-        
-        // Detectar nombre del texto del usuario
+
         if (!isset($lead_data['name'])) {
             $name = self::extract_name($user_text);
             if ($name) {
                 $lead_data['name'] = sanitize_text_field($name);
+                $has_partial_data  = true;
             }
         }
-        
-        $required_fields = ['name', 'email', 'phone', 'website'];
-        $missing_fields = array_diff($required_fields, array_keys($lead_data));
-        $is_complete_lead = isset($lead_data['email']) || isset($lead_data['phone']);
-        
+
+        $lead_data = array_intersect_key($lead_data, $field_definitions);
+        $missing_fields = self::get_missing_fields($lead_data, $assistant_id, $assistant_settings, $field_definitions);
+        $is_complete    = $has_partial_data && empty($missing_fields);
+
         return [
-            'has_lead' => $has_contact || isset($lead_data['name']), // Un nombre también puede iniciar un lead
-            'is_complete' => $is_complete_lead,
-            'data' => $lead_data,
-            'missing_fields' => $missing_fields
+            'has_lead'       => $has_partial_data,
+            'is_complete'    => $is_complete,
+            'data'           => $lead_data,
+            'missing_fields' => $missing_fields,
         ];
     }
     
@@ -158,27 +159,137 @@ class AICP_Lead_Manager {
      * Procesar datos de lead después de guardar conversación
      */
     public static function process_lead_data($log_id, $assistant_id, $conversation) {
-        $lead_info = self::detect_contact_data($conversation);
-        
-        if ($lead_info['has_lead']) {
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'aicp_chat_logs';
-            
-            $lead_status = $lead_info['is_complete'] ? 'complete' : 'partial';
-            
-            $wpdb->update(
-                $table_name,
-                [
-                    'has_lead' => 1,
-                    'lead_data' => wp_json_encode($lead_info['data'], JSON_UNESCAPED_UNICODE),
-                    'lead_status' => $lead_status
-                ],
-                ['id' => $log_id],
-                ['%d', '%s', '%s'],
-                ['%d']
-            );
-            do_action('aicp_lead_detected', $lead_info['data'], $assistant_id, $log_id, $lead_status);
+        $lead_info = self::detect_contact_data($conversation, $assistant_id);
+
+        if (!$lead_info['is_complete']) {
+            return;
         }
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'aicp_chat_logs';
+
+        $wpdb->update(
+            $table_name,
+            [
+                'has_lead'    => 1,
+                'lead_data'   => wp_json_encode($lead_info['data'], JSON_UNESCAPED_UNICODE),
+                'lead_status' => 'complete'
+            ],
+            ['id' => $log_id],
+            ['%d', '%s', '%s'],
+            ['%d']
+        );
+
+        do_action('aicp_lead_detected', $lead_info['data'], $assistant_id, $log_id, 'complete');
+    }
+
+    private static function get_lead_field_definitions($assistant_id = 0, $assistant_settings = null) {
+        $defaults = [
+            'name' => [
+                'label'    => __('nombre', 'ai-chatbot-pro'),
+                'type'     => 'text',
+                'required' => false,
+            ],
+            'email' => [
+                'label'    => __('email', 'ai-chatbot-pro'),
+                'type'     => 'email',
+                'required' => true,
+            ],
+            'phone' => [
+                'label'    => __('teléfono', 'ai-chatbot-pro'),
+                'type'     => 'phone',
+                'required' => false,
+            ],
+            'website' => [
+                'label'    => __('sitio web', 'ai-chatbot-pro'),
+                'type'     => 'url',
+                'required' => false,
+            ],
+        ];
+
+        $lead_fields = [];
+        if (is_array($assistant_settings) && isset($assistant_settings['lead_fields']) && is_array($assistant_settings['lead_fields'])) {
+            $lead_fields = $assistant_settings['lead_fields'];
+        } elseif ($assistant_id) {
+            $settings = get_post_meta($assistant_id, '_aicp_assistant_settings', true);
+            if (is_array($settings) && isset($settings['lead_fields']) && is_array($settings['lead_fields'])) {
+                $lead_fields = $settings['lead_fields'];
+            }
+        }
+
+        $normalized = [];
+        foreach ($lead_fields as $key => $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            $name = sanitize_key($field['name'] ?? $key);
+            if (!$name) {
+                continue;
+            }
+
+            $label = sanitize_text_field($field['label'] ?? $name);
+            $type  = sanitize_key($field['type'] ?? 'text');
+
+            $normalized[$name] = [
+                'label'    => $label ?: ucfirst(str_replace('_', ' ', $name)),
+                'type'     => $type,
+                'required' => !empty($field['required']),
+            ];
+        }
+
+        $definitions = array_merge($defaults, $normalized);
+
+        $has_required = false;
+        foreach ($definitions as $definition) {
+            if (!empty($definition['required'])) {
+                $has_required = true;
+                break;
+            }
+        }
+
+        if (!$has_required) {
+            foreach ($definitions as $name => $definition) {
+                $definitions[$name]['required'] = true;
+            }
+        }
+
+        return $definitions;
+    }
+
+    private static function extract_required_field_names($field_definitions) {
+        $required = [];
+        foreach ($field_definitions as $name => $definition) {
+            if (!empty($definition['required'])) {
+                $required[] = $name;
+            }
+        }
+
+        return $required;
+    }
+
+    public static function get_missing_fields($lead_data, $assistant_id = 0, $assistant_settings = null, $field_definitions = null) {
+        $lead_data = is_array($lead_data) ? $lead_data : [];
+        if ($field_definitions === null) {
+            $field_definitions = self::get_lead_field_definitions($assistant_id, $assistant_settings);
+        }
+
+        $missing = [];
+        foreach ($field_definitions as $name => $definition) {
+            if (empty($definition['required'])) {
+                continue;
+            }
+
+            $value = $lead_data[$name] ?? '';
+            if (is_string($value)) {
+                $value = trim($value);
+            }
+
+            if ($value === '' || $value === null) {
+                $missing[] = $name;
+            }
+        }
+
+        return $missing;
     }
 
     /**
@@ -234,26 +345,6 @@ class AICP_Lead_Manager {
 
     }
     
-    /**
-     * Resto de funciones sin modificar...
-     */
-    private static function get_required_fields() {
-        return ['name', 'email', 'phone', 'website'];
-    }
-
-    private static function get_missing_fields_from_data($lead_data) {
-        $lead_data = is_array($lead_data) ? $lead_data : [];
-        $missing = [];
-
-        foreach (self::get_required_fields() as $field) {
-            if (empty($lead_data[$field])) {
-                $missing[] = $field;
-            }
-        }
-
-        return $missing;
-    }
-
     public static function handle_check_lead_status() {
         check_ajax_referer('aicp_chat_nonce', 'nonce');
 
@@ -265,7 +356,7 @@ class AICP_Lead_Manager {
         global $wpdb;
         $table = $wpdb->prefix . 'aicp_chat_logs';
 
-        $row = $wpdb->get_row($wpdb->prepare("SELECT lead_status, lead_data FROM {$table} WHERE id = %d", $log_id));
+        $row = $wpdb->get_row($wpdb->prepare("SELECT assistant_id, lead_status, lead_data FROM {$table} WHERE id = %d", $log_id));
         if (!$row) {
             wp_send_json_error(['message' => __('No se encontró el registro solicitado.', 'ai-chatbot-pro')]);
         }
@@ -276,13 +367,14 @@ class AICP_Lead_Manager {
         }
 
         $status = $row->lead_status ?: 'none';
-        $missing_fields = self::get_missing_fields_from_data($lead_data);
+        $assistant_id = isset($row->assistant_id) ? (int) $row->assistant_id : 0;
+        $missing_fields = self::get_missing_fields($lead_data, $assistant_id);
 
         wp_send_json_success([
             'status'          => $status,
             'lead_data'       => $lead_data,
             'missing_fields'  => $missing_fields,
-            'message'         => self::get_missing_data_message($missing_fields),
+            'message'         => self::get_missing_data_message($missing_fields, $assistant_id),
         ]);
     }
 
@@ -334,7 +426,7 @@ class AICP_Lead_Manager {
             'message'        => __('Lead marcado correctamente.', 'ai-chatbot-pro'),
             'lead_status'    => 'calendar',
             'lead_data'      => $lead_data,
-            'missing_fields' => self::get_missing_fields_from_data($lead_data),
+            'missing_fields' => self::get_missing_fields($lead_data, $assistant_id),
         ]);
     }
 
@@ -389,21 +481,20 @@ class AICP_Lead_Manager {
         return $stats;
     }
 
-    public static function get_missing_data_message($missing_fields) {
+    public static function get_missing_data_message($missing_fields, $assistant_id = 0, $assistant_settings = null) {
         if (empty($missing_fields)) {
             return __('¡Perfecto! Tenemos toda tu información de contacto.', 'ai-chatbot-pro');
         }
 
-        $labels = [
-            'name'    => __('nombre', 'ai-chatbot-pro'),
-            'email'   => __('email', 'ai-chatbot-pro'),
-            'phone'   => __('teléfono', 'ai-chatbot-pro'),
-            'website' => __('sitio web', 'ai-chatbot-pro'),
-        ];
+        $field_definitions = self::get_lead_field_definitions($assistant_id, $assistant_settings);
 
         $translated = [];
         foreach ($missing_fields as $field) {
-            $translated[] = $labels[$field] ?? $field;
+            if (isset($field_definitions[$field])) {
+                $translated[] = $field_definitions[$field]['label'];
+            } else {
+                $translated[] = $field;
+            }
         }
 
         if (count($translated) > 1) {
