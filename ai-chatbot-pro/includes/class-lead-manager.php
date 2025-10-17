@@ -444,6 +444,10 @@ class AICP_Lead_Manager {
      * Enviar los datos del lead a la URL configurada.
      */
     public static function send_lead_to_webhook($lead_data, $assistant_id, $log_id, $lead_status) {
+        if ($lead_status !== 'complete') {
+            return;
+        }
+
         $settings = get_post_meta($assistant_id, '_aicp_assistant_settings', true);
         $url = isset($settings['webhook_url']) ? esc_url_raw($settings['webhook_url']) : '';
 
@@ -473,6 +477,10 @@ class AICP_Lead_Manager {
      * Enviar notificación por email con los datos del lead.
      */
     public static function email_lead_notification($lead_data, $assistant_id, $log_id, $lead_status) {
+        if ($lead_status !== 'complete') {
+            return;
+        }
+
         $settings = get_post_meta($assistant_id, '_aicp_assistant_settings', true);
         $email    = isset($settings['lead_email']) ? sanitize_email($settings['lead_email']) : '';
         if (!$email) {

@@ -448,8 +448,22 @@ class AICP_Ajax_Handler {
             wp_send_json_error(['message' => __('Datos incompletos.', 'ai-chatbot-pro')]);
         }
 
-        do_action('aicp_lead_detected', $answers, $assistant_id, 0, 'form');
+        $missing_fields = AICP_Lead_Manager::get_missing_fields($answers, $assistant_id);
+        $lead_status    = empty($missing_fields) ? 'complete' : 'incomplete';
 
-        wp_send_json_success(['message' => __('Formulario enviado', 'ai-chatbot-pro')]);
+        if ($lead_status === 'complete') {
+            do_action('aicp_lead_detected', $answers, $assistant_id, 0, 'complete');
+        }
+
+        $response = [
+            'message' => __('Formulario enviado', 'ai-chatbot-pro'),
+            'status'  => $lead_status,
+        ];
+
+        if ($lead_status !== 'complete') {
+            $response['missing_fields'] = $missing_fields;
+        }
+
+        wp_send_json_success($response);
     }
 }

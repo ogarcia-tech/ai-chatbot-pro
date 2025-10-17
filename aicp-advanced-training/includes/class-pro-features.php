@@ -21,6 +21,7 @@ class AICP_Pro_Features {
         $auto_open_delay = isset($settings['auto_open_delay']) ? absint($settings['auto_open_delay']) : 5;
         $auto_open_duration = isset($settings['auto_open_duration']) ? absint($settings['auto_open_duration']) : 0;
         $auto_open_message = isset($settings['auto_open_message']) ? $settings['auto_open_message'] : '';
+        $integration_active = !empty($settings['forward_to_webhook']);
         
         // --- INICIO DE LA MODIFICACIÓN ---
         // Obtener las reglas de comportamiento guardadas
@@ -53,6 +54,10 @@ class AICP_Pro_Features {
         }
 
         ?>
+        <div class="notice notice-warning inline aicp-pro-training-lock-notice" <?php if (!$integration_active) : ?>style="display:none;"<?php endif; ?>>
+            <p><?php _e('La integración con n8n está activa. Desactívala para volver a entrenar el asistente o modificar estas opciones PRO.', 'ai-chatbot-pro'); ?></p>
+        </div>
+        <div class="aicp-pro-training-fields" data-forwarding-active="<?php echo $integration_active ? '1' : '0'; ?>">
         <h4><?php _e('Entrenamiento de Contenido (con OpenAI)', 'ai-chatbot-pro'); ?></h4>
         <p class="description"><?php _e('Selecciona el contenido de tu web para crear una base de conocimiento directamente en OpenAI. El asistente usará esta información para responder.', 'ai-chatbot-pro'); ?></p>
 
@@ -143,6 +148,7 @@ class AICP_Pro_Features {
             <p style="margin: 5px 0;"><?php if ($last_sync_time) : ?>Última sincronización: <?php echo date_i18n(get_option('date_format') . ' H:i', $last_sync_time); ?> (<?php echo esc_html($last_sync_count); ?> posts/páginas procesados).<?php else: ?>Este asistente no se ha sincronizado nunca.<?php endif; ?></p>
             <small>OpenAI Assistant ID: <?php echo esc_html($openai_assistant_id ?: 'N/A'); ?></small><br>
             <small>OpenAI Vector Store ID: <?php echo esc_html($vector_store_id ?: 'N/A'); ?></small>
+        </div>
         </div>
         <?php
     }
