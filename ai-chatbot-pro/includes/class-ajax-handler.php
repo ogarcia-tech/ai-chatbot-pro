@@ -200,17 +200,23 @@ class AICP_Ajax_Handler {
             $lead_payload = self::sanitize_lead_payload(wp_unslash($_POST['lead_data']));
         }
 
-        $system_prompt = AICP_Prompt_Builder::build($s, $page_context);
+        $use_webhook = !empty($s['forward_to_webhook']) && !empty($s['forward_webhook_url']);
+
+        $system_prompt = '';
+        if (!$use_webhook) {
+            $system_prompt = AICP_Prompt_Builder::build($s, $page_context);
+        }
 
         $short_term_memory = array_slice($history, -10);
-        $conversation = [['role' => 'system', 'content' => $system_prompt]];
+        $conversation = [];
+        if (!$use_webhook) {
+            $conversation[] = ['role' => 'system', 'content' => $system_prompt];
+        }
         foreach ($short_term_memory as $item) {
             if (isset($item['role'], $item['content'])) {
                 $conversation[] = ['role' => sanitize_key($item['role']), 'content' => sanitize_textarea_field($item['content'])];
             }
         }
-
-        $use_webhook = !empty($s['forward_to_webhook']) && !empty($s['forward_webhook_url']);
 
         $reply = '';
         $metadata = [];

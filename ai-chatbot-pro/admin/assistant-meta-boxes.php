@@ -123,8 +123,10 @@ function aicp_admin_scripts($hook) {
             'length_tone' => $settings['length_tone'] ?? '',
             'example' => $settings['example'] ?? '',
             'quick_replies' => is_array($settings['quick_replies'] ?? null) ? $settings['quick_replies'] : [],
+            'forward_to_webhook' => !empty($settings['forward_to_webhook']),
         ],
         'meta' => $meta,
+        'webhook_warning' => __('Si activas el reenvío al webhook externo, el asistente ignorará las instrucciones internas y no podrás editarlas hasta desactivar la integración. ¿Deseas continuar?', 'ai-chatbot-pro'),
     ]);
 }
 add_action('admin_enqueue_scripts', 'aicp_admin_scripts');
@@ -177,8 +179,13 @@ function aicp_render_instructions_tab($v) {
         require_once AICP_PLUGIN_DIR . 'includes/class-prompt-builder.php';
     }
     $prompt = $v['custom_prompt'] ?? ($v['compiled_prompt'] ?? AICP_Prompt_Builder::build($v));
+    $is_forwarding_enabled = !empty($v['forward_to_webhook']);
     ?>
-    <table class="form-table">
+    <div class="notice notice-warning inline aicp-instructions-lock-notice"<?php echo $is_forwarding_enabled ? '' : ' style="display:none;"'; ?>>
+        <p><?php _e('Las instrucciones están desactivadas porque el asistente reenvía los mensajes a un webhook externo. Desactiva la integración para volver a editarlas.', 'ai-chatbot-pro'); ?></p>
+    </div>
+    <div class="aicp-instructions-fields<?php echo $is_forwarding_enabled ? ' aicp-instructions-locked' : ''; ?>">
+        <table class="form-table">
 
         <tr>
             <th><label for="aicp_model"><?php _e('Modelo de IA', 'ai-chatbot-pro'); ?></label></th>
@@ -215,7 +222,8 @@ function aicp_render_instructions_tab($v) {
                 <p><label><input type="checkbox" name="aicp_settings[use_custom_prompt]" id="aicp_edit_prompt_toggle" <?php checked(!empty($v['custom_prompt'])); ?>> <?php _e('Editar manualmente', 'ai-chatbot-pro'); ?></label></p>
             </td>
         </tr>
-    </table>
+        </table>
+    </div>
     <?php
 }
 
