@@ -84,6 +84,7 @@ class AICP_Shortcode_Handler {
         $auto_open_duration = isset($s['auto_open_duration']) ? max(0, intval($s['auto_open_duration'])) : 0;
         $auto_open_message  = isset($s['auto_open_message']) ? sanitize_textarea_field($s['auto_open_message']) : '';
         $lead_fields_config = AICP_Lead_Manager::get_lead_field_config($assistant_id, $s);
+        $forwarding_active  = !empty($s['forward_to_webhook']) && !empty($s['forward_webhook_url']);
 
         wp_localize_script('aicp-chatbot-script', 'aicp_chatbot_params', [
             'ajax_url'           => admin_url('admin-ajax.php'),
@@ -98,6 +99,8 @@ class AICP_Shortcode_Handler {
             'position'           => $s['position'] ?? 'br',
 
             'quick_replies' => $quick_replies,
+
+            'forwarding_active' => $forwarding_active,
 
             'lead_auto_collect'  => $lead_auto_collect,
             'calendar_url'       => $calendar_url,

@@ -112,6 +112,41 @@
 }
 .aicp-instructions-fields.aicp-instructions-locked table { filter: grayscale(0.6); }
 
+/* Bloqueo de leads y pestañas PRO cuando se usa el webhook */
+.aicp-lead-settings { position: relative; }
+#aicp-tab-leads.aicp-leads-tab--locked .aicp-lead-settings::after,
+.aicp-lead-settings.aicp-lead-settings--locked::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.6);
+    pointer-events: auto;
+    cursor: not-allowed;
+    z-index: 1;
+}
+#aicp-tab-leads.aicp-leads-tab--locked .aicp-lead-settings table {
+    filter: grayscale(0.6);
+}
+
+#aicp-tab-pro.aicp-pro-tab--locked,
+#aicp-tab-pro-upsell.aicp-pro-tab--locked {
+    position: relative;
+}
+#aicp-tab-pro.aicp-pro-tab--locked::after,
+#aicp-tab-pro-upsell.aicp-pro-tab--locked::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.6);
+    pointer-events: auto;
+    cursor: not-allowed;
+    z-index: 1;
+}
+#aicp-tab-pro.aicp-pro-tab--locked .aicp-pro-training-fields,
+#aicp-tab-pro-upsell.aicp-pro-tab--locked .aicp-pro-feature-wrapper {
+    filter: grayscale(0.6);
+}
+
 /* Página de analíticas */
 #aicp-analytics-page .aicp-stats-boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
 #aicp-analytics-page .aicp-stat-box { background: #fff; padding: 20px; border: 1px solid #e5e5e5; box-shadow: 0 1px 1px rgba(0,0,0,.04); }

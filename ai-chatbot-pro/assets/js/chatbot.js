@@ -6,6 +6,14 @@ jQuery(function($) {
     const params = window.aicp_chatbot_params;
     if (!params) return;
     params.quick_replies = Array.isArray(params.quick_replies) ? params.quick_replies : [];
+    const forwardingActive = !!params.forwarding_active;
+
+    if (forwardingActive) {
+        params.quick_replies = [];
+        if (params.auto_open && typeof params.auto_open === 'object') {
+            params.auto_open.message = '';
+        }
+    }
 
     let conversationHistory = [];
     let logId = 0;

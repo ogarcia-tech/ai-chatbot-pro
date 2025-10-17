@@ -203,15 +203,15 @@ class AICP_Ajax_Handler {
 
         $use_webhook = !empty($s['forward_to_webhook']) && !empty($s['forward_webhook_url']);
 
-        $system_prompt = '';
-        if (!$use_webhook) {
-            $system_prompt = AICP_Prompt_Builder::build($s, $page_context);
-        }
+        $system_prompt = AICP_Prompt_Builder::build($s, $page_context);
 
         $short_term_memory = array_slice($history, -10);
         $conversation = [];
-        if (!$use_webhook) {
-            $conversation[] = ['role' => 'system', 'content' => $system_prompt];
+        if ('' !== trim($system_prompt)) {
+            $conversation[] = [
+                'role'    => 'system',
+                'content' => $system_prompt,
+            ];
         }
         foreach ($short_term_memory as $item) {
             if (isset($item['role'], $item['content'])) {

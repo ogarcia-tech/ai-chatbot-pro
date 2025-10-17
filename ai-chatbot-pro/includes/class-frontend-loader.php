@@ -104,6 +104,7 @@ class AICP_Frontend_Loader {
         $auto_open_delay    = isset($s['auto_open_delay']) ? max(0, intval($s['auto_open_delay'])) : 0;
         $auto_open_duration = isset($s['auto_open_duration']) ? max(0, intval($s['auto_open_duration'])) : 0;
         $auto_open_message  = isset($s['auto_open_message']) ? sanitize_textarea_field($s['auto_open_message']) : '';
+        $forwarding_active  = !empty($s['forward_to_webhook']) && !empty($s['forward_webhook_url']);
 
         wp_localize_script('aicp-chatbot-script', 'aicp_chatbot_params', [
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -119,6 +120,8 @@ class AICP_Frontend_Loader {
             'open_icon' => !empty($s['open_icon_url']) ? esc_url($s['open_icon_url']) : $default_open_icon,
 
             'quick_replies' => $quick_replies,
+
+            'forwarding_active' => $forwarding_active,
 
             'lead_auto_collect'  => $lead_auto_collect,
             'calendar_url'       => $calendar_url,
