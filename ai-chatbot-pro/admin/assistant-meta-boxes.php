@@ -107,6 +107,7 @@ function aicp_admin_scripts($hook) {
         'default_user_avatar' => $default_user_avatar,
         'default_open_icon' => $default_open_icon,
         'templates_url' => AICP_PLUGIN_URL . 'assistant_templates.json',
+        'lead_fields' => AICP_Lead_Manager::get_lead_field_config($post_id, $settings),
         'initial_settings' => [
             'bot_avatar_url' => $settings['bot_avatar_url'] ?? $default_bot_avatar,
             'user_avatar_url' => $settings['user_avatar_url'] ?? $default_user_avatar,
@@ -305,11 +306,19 @@ function aicp_render_leads_tab($assistant_id, $v) {
     $lead_email   = $v['lead_email'] ?? '';
     $webhook      = esc_url($v['webhook_url'] ?? '');
     $calendar_url = esc_url($v['calendar_url'] ?? '');
+    $integration_active = !empty($v['forward_to_webhook']) && !empty($v['forward_webhook_url']);
     
     // Nuevo campo para los campos de lead dinámicos
     $lead_fields = isset($v['lead_fields']) && is_array($v['lead_fields']) ? $v['lead_fields'] : [];
 
     echo '<h4>' . __('Ajustes de Captura de Leads', 'ai-chatbot-pro') . '</h4>';
+
+    if ($integration_active) {
+        echo '<div class="notice notice-warning inline"><p>' . __('La integración con n8n está activa. Desactívala para configurar la captura de leads desde este apartado.', 'ai-chatbot-pro') . '</p></div>';
+    }
+
+    $fieldset_attr = $integration_active ? ' disabled="disabled"' : '';
+    echo '<fieldset class="aicp-lead-settings"' . $fieldset_attr . '>';
     echo '<table class="form-table"><tbody>';
     echo '<tr><th><label>' . __('Captura Automática', 'ai-chatbot-pro') . '</label></th><td><label><input type="checkbox" name="aicp_settings[lead_auto_collect]" value="1" ' . checked($auto_collect, true, false) . '> ' . __('Solicitar datos de contacto automáticamente', 'ai-chatbot-pro') . '</label></td></tr>';
     echo '<tr><th><label for="aicp_lead_email">' . __('Email de notificación', 'ai-chatbot-pro') . '</label></th><td><input type="email" id="aicp_lead_email" name="aicp_settings[lead_email]" value="' . esc_attr($lead_email) . '" class="regular-text" /><br /><span class="description">' . sprintf(__('Si se deja vacío, se usará %s.', 'ai-chatbot-pro'), esc_html(get_option('admin_email'))) . '</span></td></tr>';
@@ -334,7 +343,9 @@ function aicp_render_leads_tab($assistant_id, $v) {
     }
     
     echo '</tbody></table>';
-    echo '<button type="button" class="button aicp-add-lead-field">' . __('Añadir Campo', 'ai-chatbot-pro') . '</button>';
+    $add_button_attr = $integration_active ? ' disabled="disabled" aria-disabled="true"' : '';
+    echo '<button type="button" class="button aicp-add-lead-field"' . $add_button_attr . '>' . __('Añadir Campo', 'ai-chatbot-pro') . '</button>';
+    echo '</fieldset>';
 
     // Historial de Conversaciones
     $table_name = $wpdb->prefix . 'aicp_chat_logs';

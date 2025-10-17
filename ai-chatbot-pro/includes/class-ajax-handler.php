@@ -198,6 +198,7 @@ class AICP_Ajax_Handler {
         $lead_payload = [];
         if (isset($_POST['lead_data'])) {
             $lead_payload = self::sanitize_lead_payload(wp_unslash($_POST['lead_data']));
+            $lead_payload = AICP_Lead_Manager::sanitize_lead_input($lead_payload, $assistant_id, $s);
         }
 
         $use_webhook = !empty($s['forward_to_webhook']) && !empty($s['forward_webhook_url']);
