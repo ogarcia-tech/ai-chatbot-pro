@@ -327,6 +327,305 @@ jQuery(function($) {
         }
     }
 
+    function handleLeadsLock() {
+        const $tab = $('#aicp-tab-leads');
+        if (!$tab.length) {
+            return;
+        }
+
+        const $toggle = $('#aicp_forward_to_webhook');
+        const $notice = $tab.find('.aicp-leads-lock-notice');
+        const $fieldset = $tab.find('.aicp-lead-settings');
+
+        function getLockableFields() {
+            return $tab.find('input[name^="aicp_settings"], textarea[name^="aicp_settings"], select[name^="aicp_settings"]').filter(function() {
+                const $el = $(this);
+                if ($el.hasClass('aicp-lock-hidden')) {
+                    return false;
+                }
+                const type = ($el.attr('type') || '').toLowerCase();
+                return type !== 'hidden';
+            });
+        }
+
+        function createHiddenMirror($el) {
+            const name = $el.attr('name');
+            if (!name) {
+                return null;
+            }
+
+            let $hidden = $el.data('aicpLockHidden');
+            if (!$hidden || !$hidden.length) {
+                $hidden = $('<input type="hidden" class="aicp-lock-hidden" />').attr('name', name);
+                $el.after($hidden);
+                $el.data('aicpLockHidden', $hidden);
+            }
+
+            if ($el.is(':checkbox') || $el.is(':radio')) {
+                $hidden.val($el.is(':checked') ? ($el.val() || 'on') : '');
+            } else if ($el.is('select')) {
+                const value = $el.val();
+                if (Array.isArray(value)) {
+                    $hidden.val(value.join(','));
+                } else {
+                    $hidden.val(value);
+                }
+            }
+
+            return $hidden;
+        }
+
+        function removeHiddenMirror($el) {
+            const $hidden = $el.data('aicpLockHidden');
+            if ($hidden && $hidden.length) {
+                $hidden.remove();
+                $el.removeData('aicpLockHidden');
+            }
+        }
+
+        function lockElement($el) {
+            const type = ($el.attr('type') || '').toLowerCase();
+
+            if ($el.is('textarea') || ($el.is('input') && !['checkbox', 'radio', 'button', 'submit', 'file'].includes(type))) {
+                if (typeof $el.data('aicpOriginalReadonly') === 'undefined') {
+                    $el.data('aicpOriginalReadonly', $el.prop('readonly'));
+                }
+                $el.prop('readonly', true);
+            }
+
+            if ($el.is('select') || $el.is(':checkbox') || $el.is(':radio')) {
+                if (typeof $el.data('aicpOriginalDisabled') === 'undefined') {
+                    $el.data('aicpOriginalDisabled', $el.prop('disabled'));
+                }
+                $el.prop('disabled', true);
+                createHiddenMirror($el);
+            }
+        }
+
+        function unlockElement($el) {
+            const type = ($el.attr('type') || '').toLowerCase();
+
+            if ($el.is('textarea') || ($el.is('input') && !['checkbox', 'radio', 'button', 'submit', 'file'].includes(type))) {
+                if (typeof $el.data('aicpOriginalReadonly') !== 'undefined') {
+                    $el.prop('readonly', $el.data('aicpOriginalReadonly'));
+                } else {
+                    $el.prop('readonly', false);
+                }
+            }
+
+            if ($el.is('select') || $el.is(':checkbox') || $el.is(':radio')) {
+                if (typeof $el.data('aicpOriginalDisabled') !== 'undefined') {
+                    $el.prop('disabled', $el.data('aicpOriginalDisabled'));
+                } else {
+                    $el.prop('disabled', false);
+                }
+                removeHiddenMirror($el);
+            }
+        }
+
+        function toggleActionButtons(locked) {
+            $tab.find('.aicp-add-lead-field, .aicp-remove-lead-field').each(function() {
+                const $btn = $(this);
+                if (locked) {
+                    if (typeof $btn.data('aicpOriginalDisabled') === 'undefined') {
+                        $btn.data('aicpOriginalDisabled', $btn.prop('disabled'));
+                    }
+                    $btn.prop('disabled', true).attr('aria-disabled', 'true');
+                } else {
+                    if (typeof $btn.data('aicpOriginalDisabled') !== 'undefined') {
+                        $btn.prop('disabled', $btn.data('aicpOriginalDisabled'));
+                    } else {
+                        $btn.prop('disabled', false);
+                    }
+                    $btn.removeAttr('aria-disabled');
+                }
+            });
+        }
+
+        function setLocked(locked) {
+            if (locked) {
+                $tab.addClass('aicp-leads-tab--locked');
+                $fieldset.addClass('aicp-lead-settings--locked');
+                $notice.show();
+            } else {
+                $tab.removeClass('aicp-leads-tab--locked');
+                $fieldset.removeClass('aicp-lead-settings--locked');
+                $notice.hide();
+            }
+
+            const $fields = getLockableFields();
+            $fields.each(function() {
+                const $field = $(this);
+                if (locked) {
+                    lockElement($field);
+                } else {
+                    unlockElement($field);
+                }
+            });
+
+            toggleActionButtons(locked);
+        }
+
+        const initialLocked = $tab.data('forwardingActive') === 1 || ($toggle.length && ($toggle.is(':checked') || !!(aicp_admin_params.initial_settings && aicp_admin_params.initial_settings.forward_to_webhook)));
+        setLocked(initialLocked);
+
+        if ($toggle.length) {
+            $toggle.on('change', function() {
+                setLocked($toggle.is(':checked'));
+            });
+        }
+    }
+
+    function handleProTabLock() {
+        const $tabs = $('#aicp-tab-pro, #aicp-tab-pro-upsell');
+        if (!$tabs.length) {
+            return;
+        }
+
+        const $toggle = $('#aicp_forward_to_webhook');
+
+        function getLockableFields($scope) {
+            return $scope.find('input, textarea, select').filter(function() {
+                const $el = $(this);
+                if ($el.hasClass('aicp-lock-hidden')) {
+                    return false;
+                }
+                const type = ($el.attr('type') || '').toLowerCase();
+                return type !== 'hidden';
+            });
+        }
+
+        function createHiddenMirror($el) {
+            const name = $el.attr('name');
+            if (!name) {
+                return null;
+            }
+
+            let $hidden = $el.data('aicpLockHidden');
+            if (!$hidden || !$hidden.length) {
+                $hidden = $('<input type="hidden" class="aicp-lock-hidden" />').attr('name', name);
+                $el.after($hidden);
+                $el.data('aicpLockHidden', $hidden);
+            }
+
+            if ($el.is(':checkbox') || $el.is(':radio')) {
+                $hidden.val($el.is(':checked') ? ($el.val() || 'on') : '');
+            } else if ($el.is('select')) {
+                const value = $el.val();
+                if (Array.isArray(value)) {
+                    $hidden.val(value.join(','));
+                } else {
+                    $hidden.val(value);
+                }
+            }
+
+            return $hidden;
+        }
+
+        function removeHiddenMirror($el) {
+            const $hidden = $el.data('aicpLockHidden');
+            if ($hidden && $hidden.length) {
+                $hidden.remove();
+                $el.removeData('aicpLockHidden');
+            }
+        }
+
+        function lockElement($el) {
+            const type = ($el.attr('type') || '').toLowerCase();
+
+            if ($el.is('textarea') || ($el.is('input') && !['checkbox', 'radio', 'button', 'submit', 'file'].includes(type))) {
+                if (typeof $el.data('aicpOriginalReadonly') === 'undefined') {
+                    $el.data('aicpOriginalReadonly', $el.prop('readonly'));
+                }
+                $el.prop('readonly', true);
+            }
+
+            if ($el.is('select') || $el.is(':checkbox') || $el.is(':radio')) {
+                if (typeof $el.data('aicpOriginalDisabled') === 'undefined') {
+                    $el.data('aicpOriginalDisabled', $el.prop('disabled'));
+                }
+                $el.prop('disabled', true);
+                createHiddenMirror($el);
+            }
+        }
+
+        function unlockElement($el) {
+            const type = ($el.attr('type') || '').toLowerCase();
+
+            if ($el.is('textarea') || ($el.is('input') && !['checkbox', 'radio', 'button', 'submit', 'file'].includes(type))) {
+                if (typeof $el.data('aicpOriginalReadonly') !== 'undefined') {
+                    $el.prop('readonly', $el.data('aicpOriginalReadonly'));
+                } else {
+                    $el.prop('readonly', false);
+                }
+            }
+
+            if ($el.is('select') || $el.is(':checkbox') || $el.is(':radio')) {
+                if (typeof $el.data('aicpOriginalDisabled') !== 'undefined') {
+                    $el.prop('disabled', $el.data('aicpOriginalDisabled'));
+                } else {
+                    $el.prop('disabled', false);
+                }
+                removeHiddenMirror($el);
+            }
+        }
+
+        function toggleActionButtons($scope, locked) {
+            $scope.find('.aicp-pro-training-fields button, .aicp-pro-training-fields .button').each(function() {
+                const $btn = $(this);
+                if (locked) {
+                    if (typeof $btn.data('aicpOriginalDisabled') === 'undefined') {
+                        $btn.data('aicpOriginalDisabled', $btn.prop('disabled'));
+                    }
+                    $btn.prop('disabled', true).attr('aria-disabled', 'true');
+                } else {
+                    if (typeof $btn.data('aicpOriginalDisabled') !== 'undefined') {
+                        $btn.prop('disabled', $btn.data('aicpOriginalDisabled'));
+                    } else {
+                        $btn.prop('disabled', false);
+                    }
+                    $btn.removeAttr('aria-disabled');
+                }
+            });
+        }
+
+        function setLocked(locked) {
+            $tabs.each(function() {
+                const $tab = $(this);
+                const $notice = $tab.find('.aicp-pro-lock-notice');
+
+                if (locked) {
+                    $tab.addClass('aicp-pro-tab--locked');
+                    $notice.show();
+                } else {
+                    $tab.removeClass('aicp-pro-tab--locked');
+                    $notice.hide();
+                }
+
+                const $fields = getLockableFields($tab);
+                $fields.each(function() {
+                    const $field = $(this);
+                    if (locked) {
+                        lockElement($field);
+                    } else {
+                        unlockElement($field);
+                    }
+                });
+
+                toggleActionButtons($tab, locked);
+            });
+        }
+
+        const initialLocked = $tabs.first().data('forwardingActive') === 1 || ($toggle.length && ($toggle.is(':checked') || !!(aicp_admin_params.initial_settings && aicp_admin_params.initial_settings.forward_to_webhook)));
+        setLocked(initialLocked);
+
+        if ($toggle.length) {
+            $toggle.on('change', function() {
+                setLocked($toggle.is(':checked'));
+            });
+        }
+    }
+
     function handleProTrainingLock() {
         const $container = $('.aicp-pro-training-fields');
         if (!$container.length) {
@@ -612,6 +911,8 @@ jQuery(function($) {
         initTemplateSelector();
         handleCustomPromptToggle();
         handleWebhookToggle();
+        handleLeadsLock();
+        handleProTabLock();
         handleProTrainingLock();
 
     }

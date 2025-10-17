@@ -139,6 +139,16 @@ function aicp_render_main_meta_box($post) {
     wp_nonce_field('aicp_save_meta_box_data', 'aicp_meta_box_nonce');
     $v = get_post_meta($post->ID, '_aicp_assistant_settings', true);
     if (!is_array($v)) $v = [];
+    $forwarding_active = !empty($v['forward_to_webhook']) && !empty($v['forward_webhook_url']);
+    $leads_tab_classes = 'aicp-tab-content';
+    if ($forwarding_active) {
+        $leads_tab_classes .= ' aicp-leads-tab--locked';
+    }
+
+    $pro_tab_classes = 'aicp-tab-content';
+    if ($forwarding_active) {
+        $pro_tab_classes .= ' aicp-pro-tab--locked';
+    }
     ?>
     <div id="aicp-tab-instructions" class="aicp-tab-content">
         <?php aicp_render_instructions_tab($v); ?>
@@ -153,7 +163,7 @@ function aicp_render_main_meta_box($post) {
             </div>
         </div>
     </div>
-    <div id="aicp-tab-leads" class="aicp-tab-content" style="display:none;">
+    <div id="aicp-tab-leads" class="<?php echo esc_attr($leads_tab_classes); ?>" style="display:none;" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
         <?php aicp_render_leads_tab($post->ID, $v); ?>
     </div>
     <div id="aicp-tab-integrations" class="aicp-tab-content" style="display:none;">
@@ -162,13 +172,16 @@ function aicp_render_main_meta_box($post) {
 
     <?php // Lógica corregida y limpia para mostrar el contenido PRO o el mensaje de venta.
     if (class_exists('AICP_Pro_Features')) : ?>
-        <div id="aicp-tab-pro" class="aicp-tab-content" style="display:none;">
-            <?php 
-            do_action('aicp_pro_tab_content'); 
+        <div id="aicp-tab-pro" class="<?php echo esc_attr($pro_tab_classes); ?>" style="display:none;" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
+            <div class="notice notice-warning inline aicp-pro-lock-notice"<?php echo $forwarding_active ? '' : ' style="display:none;"'; ?>>
+                <p><?php _e('Las funciones PRO están bloqueadas porque el asistente está reenviando los mensajes a un webhook externo. Desactiva la integración para realizar cambios.', 'ai-chatbot-pro'); ?></p>
+            </div>
+            <?php
+            do_action('aicp_pro_tab_content');
             ?>
         </div>
     <?php else: ?>
-        <div id="aicp-tab-pro-upsell" class="aicp-tab-content" style="display:none;">
+        <div id="aicp-tab-pro-upsell" class="<?php echo esc_attr($pro_tab_classes); ?>" style="display:none;" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
             <?php aicp_render_pro_upsell(); ?>
         </div>
     <?php endif; ?>
@@ -313,12 +326,15 @@ function aicp_render_leads_tab($assistant_id, $v) {
 
     echo '<h4>' . __('Ajustes de Captura de Leads', 'ai-chatbot-pro') . '</h4>';
 
+    $notice_style = $integration_active ? '' : ' style="display:none;"';
+    echo '<div class="notice notice-warning inline aicp-leads-lock-notice"' . $notice_style . '><p>' . __('Las opciones de leads están bloqueadas porque el asistente está reenviando los mensajes a un webhook externo. Desactiva la integración para modificar estos ajustes.', 'ai-chatbot-pro') . '</p></div>';
+
+    $fieldset_classes = 'aicp-lead-settings';
     if ($integration_active) {
-        echo '<div class="notice notice-warning inline"><p>' . __('La integración con n8n está activa. Desactívala para configurar la captura de leads desde este apartado.', 'ai-chatbot-pro') . '</p></div>';
+        $fieldset_classes .= ' aicp-lead-settings--locked';
     }
 
-    $fieldset_attr = $integration_active ? ' disabled="disabled"' : '';
-    echo '<fieldset class="aicp-lead-settings"' . $fieldset_attr . '>';
+    echo '<fieldset class="' . esc_attr($fieldset_classes) . '">';
     echo '<table class="form-table"><tbody>';
     echo '<tr><th><label>' . __('Captura Automática', 'ai-chatbot-pro') . '</label></th><td><label><input type="checkbox" name="aicp_settings[lead_auto_collect]" value="1" ' . checked($auto_collect, true, false) . '> ' . __('Solicitar datos de contacto automáticamente', 'ai-chatbot-pro') . '</label></td></tr>';
     echo '<tr><th><label for="aicp_lead_email">' . __('Email de notificación', 'ai-chatbot-pro') . '</label></th><td><input type="email" id="aicp_lead_email" name="aicp_settings[lead_email]" value="' . esc_attr($lead_email) . '" class="regular-text" /><br /><span class="description">' . sprintf(__('Si se deja vacío, se usará %s.', 'ai-chatbot-pro'), esc_html(get_option('admin_email'))) . '</span></td></tr>';
@@ -457,31 +473,67 @@ function aicp_save_meta_box_data($post_id) {
     $current = get_post_meta($post_id, '_aicp_assistant_settings', true);
     if (!is_array($current)) $current = [];
 
-    // Instrucciones
-    if (isset($s['model'])) {
-        $model = sanitize_text_field($s['model']);
-        $current['model'] = array_key_exists($model, AICP_AVAILABLE_MODELS) ? $model : array_key_first(AICP_AVAILABLE_MODELS);
-    } else {
-        $current['model'] = array_key_first(AICP_AVAILABLE_MODELS);
+    $was_forwarding = !empty($current['forward_to_webhook']) && !empty($current['forward_webhook_url']);
+    $new_forward_flag = !empty($s['forward_to_webhook']) ? 1 : 0;
+    $new_forward_url = isset($s['forward_webhook_url']) ? esc_url_raw($s['forward_webhook_url']) : '';
+    $new_forward_secret = isset($s['forward_webhook_secret']) ? sanitize_text_field($s['forward_webhook_secret']) : '';
+    $timeout_value = isset($s['forward_webhook_timeout']) ? intval($s['forward_webhook_timeout']) : 15;
+    $new_forward_timeout = max(5, min(120, $timeout_value));
+    $will_forward = $new_forward_flag && !empty($new_forward_url);
+    $lock_sections = $was_forwarding && $will_forward;
+
+    $current['forward_to_webhook'] = $new_forward_flag;
+    $current['forward_webhook_url'] = $new_forward_url;
+    $current['forward_webhook_secret'] = $new_forward_secret;
+    $current['forward_webhook_timeout'] = $new_forward_timeout;
+
+    if (!$lock_sections) {
+        // Instrucciones
+        if (isset($s['model'])) {
+            $model = sanitize_text_field($s['model']);
+            $current['model'] = array_key_exists($model, AICP_AVAILABLE_MODELS) ? $model : array_key_first(AICP_AVAILABLE_MODELS);
+        } else {
+            $current['model'] = array_key_first(AICP_AVAILABLE_MODELS);
+        }
+        $current['persona'] = isset($s['persona']) ? sanitize_textarea_field($s['persona']) : '';
+        $current['objective'] = isset($s['objective']) ? sanitize_textarea_field($s['objective']) : '';
+        $current['length_tone'] = isset($s['length_tone']) ? sanitize_textarea_field($s['length_tone']) : '';
+        $current['example'] = isset($s['example']) ? sanitize_textarea_field($s['example']) : '';
+        $current['template_id'] = isset($s['template_id']) ? sanitize_text_field($s['template_id']) : '';
+
+        if (isset($s['quick_replies']) && is_array($s['quick_replies'])) {
+            $current['quick_replies'] = array_map('sanitize_text_field', $s['quick_replies']);
+        }
+
+        if (!empty($s['use_custom_prompt']) && isset($s['custom_prompt'])) {
+            $current['custom_prompt'] = sanitize_textarea_field($s['custom_prompt']);
+        } else {
+            unset($current['custom_prompt']);
+        }
+
+        $current['compiled_prompt'] = sanitize_textarea_field(aicp_compile_prompt($current));
+
+        // Ajustes de captura de leads
+        $current['lead_auto_collect'] = !empty($s['lead_auto_collect']) ? 1 : 0;
+        $current['lead_email']        = isset($s['lead_email']) ? sanitize_email($s['lead_email']) : '';
+        $current['webhook_url']       = isset($s['webhook_url']) ? esc_url_raw($s['webhook_url']) : '';
+        $current['calendar_url']      = isset($s['calendar_url']) ? esc_url_raw($s['calendar_url']) : '';
+
+        // Guardar los nuevos campos de lead dinámicos
+        $current['lead_fields'] = [];
+        if (isset($s['lead_fields']) && is_array($s['lead_fields'])) {
+            foreach ($s['lead_fields'] as $field) {
+                if (!empty($field['name'])) {
+                    $current['lead_fields'][sanitize_key($field['name'])] = [
+                        'label' => sanitize_text_field($field['label'] ?? ''),
+                        'name' => sanitize_key($field['name']),
+                        'type' => sanitize_key($field['type'] ?? 'text'),
+                        'required' => isset($field['required']) ? 1 : 0,
+                    ];
+                }
+            }
+        }
     }
-    $current['persona'] = isset($s['persona']) ? sanitize_textarea_field($s['persona']) : '';
-    $current['objective'] = isset($s['objective']) ? sanitize_textarea_field($s['objective']) : '';
-    $current['length_tone'] = isset($s['length_tone']) ? sanitize_textarea_field($s['length_tone']) : '';
-    $current['example'] = isset($s['example']) ? sanitize_textarea_field($s['example']) : '';
-    $current['template_id'] = isset($s['template_id']) ? sanitize_text_field($s['template_id']) : '';
-
-    if (isset($s['quick_replies']) && is_array($s['quick_replies'])) {
-        $current['quick_replies'] = array_map('sanitize_text_field', $s['quick_replies']);
-
-    }
-
-    if (!empty($s['use_custom_prompt']) && isset($s['custom_prompt'])) {
-        $current['custom_prompt'] = sanitize_textarea_field($s['custom_prompt']);
-    } else {
-        unset($current['custom_prompt']);
-    }
-
-    $current['compiled_prompt'] = sanitize_textarea_field(aicp_compile_prompt($current));
 
     // Diseño
     $current['bot_avatar_url'] = isset($s['bot_avatar_url']) ? esc_url_raw($s['bot_avatar_url']) : '';
@@ -493,34 +545,6 @@ function aicp_save_meta_box_data($post_id) {
     $current['color_bot_text'] = isset($s['color_bot_text']) ? sanitize_hex_color($s['color_bot_text']) : '#333333';
     $current['color_user_bg'] = isset($s['color_user_bg']) ? sanitize_hex_color($s['color_user_bg']) : '#dcf8c6';
     $current['color_user_text'] = isset($s['color_user_text']) ? sanitize_hex_color($s['color_user_text']) : '#000000';
-
-    // Ajustes de captura de leads
-    $current['lead_auto_collect'] = !empty($s['lead_auto_collect']) ? 1 : 0;
-    $current['lead_email']        = isset($s['lead_email']) ? sanitize_email($s['lead_email']) : '';
-    $current['webhook_url']       = isset($s['webhook_url']) ? esc_url_raw($s['webhook_url']) : '';
-    $current['calendar_url']      = isset($s['calendar_url']) ? esc_url_raw($s['calendar_url']) : '';
-
-    // Integraciones
-    $current['forward_to_webhook']      = !empty($s['forward_to_webhook']) ? 1 : 0;
-    $current['forward_webhook_url']     = isset($s['forward_webhook_url']) ? esc_url_raw($s['forward_webhook_url']) : '';
-    $current['forward_webhook_secret']  = isset($s['forward_webhook_secret']) ? sanitize_text_field($s['forward_webhook_secret']) : '';
-    $timeout_value                      = isset($s['forward_webhook_timeout']) ? intval($s['forward_webhook_timeout']) : 15;
-    $current['forward_webhook_timeout'] = max(5, min(120, $timeout_value));
-
-    // Guardar los nuevos campos de lead dinámicos
-    $current['lead_fields'] = [];
-    if (isset($s['lead_fields']) && is_array($s['lead_fields'])) {
-        foreach ($s['lead_fields'] as $field) {
-            if (!empty($field['name'])) {
-                $current['lead_fields'][sanitize_key($field['name'])] = [
-                    'label' => sanitize_text_field($field['label'] ?? ''),
-                    'name' => sanitize_key($field['name']),
-                    'type' => sanitize_key($field['type'] ?? 'text'),
-                    'required' => isset($field['required']) ? 1 : 0,
-                ];
-            }
-        }
-    }
 
     // Se elimina el guardado de los mensajes de cierre que ya no existen
     unset($current['lead_action_messages']);
