@@ -195,6 +195,113 @@ jQuery(function($) {
         refresh();
     }
 
+    function handleWebhookToggle() {
+        const $toggle = $('#aicp_forward_to_webhook');
+        if (!$toggle.length) return;
+
+        const $fieldsContainer = $('.aicp-instructions-fields');
+        const $notice = $('.aicp-instructions-lock-notice');
+        const warningMessage = aicp_admin_params.webhook_warning || '';
+
+        const $lockableElements = $fieldsContainer.find('input:not([type="hidden"]), textarea, select, button').not('.aicp-lock-hidden');
+
+        function createHiddenMirror($el) {
+            const name = $el.attr('name');
+            if (!name) return null;
+            let $hidden = $el.data('aicpLockHidden');
+            if (!$hidden || !$hidden.length) {
+                $hidden = $('<input type="hidden" class="aicp-lock-hidden" />').attr('name', name);
+                $el.after($hidden);
+                $el.data('aicpLockHidden', $hidden);
+            }
+            if ($el.is(':checkbox')) {
+                $hidden.val($el.is(':checked') ? ($el.val() || 'on') : '');
+            } else {
+                $hidden.val($el.val());
+            }
+            return $hidden;
+        }
+
+        function removeHiddenMirror($el) {
+            const $hidden = $el.data('aicpLockHidden');
+            if ($hidden && $hidden.length) {
+                $hidden.remove();
+                $el.removeData('aicpLockHidden');
+            }
+        }
+
+        function lockElement($el) {
+            if ($el.is('textarea') || ($el.is('input') && !['checkbox', 'radio', 'button', 'submit'].includes($el.attr('type')))) {
+                if (typeof $el.data('aicpOriginalReadonly') === 'undefined') {
+                    $el.data('aicpOriginalReadonly', $el.prop('readonly'));
+                }
+                $el.prop('readonly', true);
+            }
+
+            if ($el.is('select') || $el.is(':checkbox') || $el.is(':radio')) {
+                if (typeof $el.data('aicpOriginalDisabled') === 'undefined') {
+                    $el.data('aicpOriginalDisabled', $el.prop('disabled'));
+                }
+                $el.prop('disabled', true);
+                createHiddenMirror($el);
+            }
+        }
+
+        function unlockElement($el) {
+            if ($el.is('textarea') || ($el.is('input') && !['checkbox', 'radio', 'button', 'submit'].includes($el.attr('type')))) {
+                if (typeof $el.data('aicpOriginalReadonly') !== 'undefined') {
+                    $el.prop('readonly', $el.data('aicpOriginalReadonly'));
+                }
+            }
+
+            if ($el.is('select') || $el.is(':checkbox') || $el.is(':radio')) {
+                if (typeof $el.data('aicpOriginalDisabled') !== 'undefined') {
+                    $el.prop('disabled', $el.data('aicpOriginalDisabled'));
+                } else {
+                    $el.prop('disabled', false);
+                }
+                removeHiddenMirror($el);
+            }
+        }
+
+        function setLockedState(locked, showWarning = false) {
+            if (locked && showWarning && warningMessage) {
+                const confirmed = window.confirm(warningMessage);
+                if (!confirmed) {
+                    $toggle.prop('checked', false);
+                    locked = false;
+                }
+            }
+
+            if (locked) {
+                $fieldsContainer.addClass('aicp-instructions-locked');
+                $notice.show();
+            } else {
+                $fieldsContainer.removeClass('aicp-instructions-locked');
+                $notice.hide();
+            }
+
+            $lockableElements.each(function() {
+                const $el = $(this);
+                if ($el.hasClass('aicp-lock-hidden')) return;
+                if (locked) {
+                    lockElement($el);
+                } else {
+                    unlockElement($el);
+                }
+            });
+        }
+
+        $toggle.on('change', function() {
+            setLockedState($toggle.is(':checked'), true);
+        });
+
+        const initialLocked = $toggle.is(':checked') || !!(aicp_admin_params.initial_settings && aicp_admin_params.initial_settings.forward_to_webhook);
+        if (initialLocked) {
+            setLockedState(true);
+        }
+    }
+
 
     function handleLivePreview(element, value) {
         const $el = $(element);
@@ -351,6 +458,7 @@ jQuery(function($) {
         handleDeleteLogFromList();
         initTemplateSelector();
         handleCustomPromptToggle();
+        handleWebhookToggle();
 
     }
 });
