@@ -13,13 +13,28 @@ jQuery(function($) {
     let isThinking = false;
     let isChatEnded = false;
     let sessionId = null;
-    let leadData = {
-        email: null,
-        name: null,
-        phone: null,
-        website: null,
-        isComplete: false
+
+    const defaultLeadDefinitions = params.lead_fields && Object.keys(params.lead_fields).length ? params.lead_fields : {
+        email: { label: 'email', required: true, type: 'email' },
+        name: { label: 'nombre', required: false, type: 'text' },
+        phone: { label: 'teléfono', required: false, type: 'phone' },
+        website: { label: 'sitio web', required: false, type: 'url' }
     };
+
+    const leadFieldDefinitions = defaultLeadDefinitions;
+    const leadFieldNames = Object.keys(leadFieldDefinitions);
+    const fieldNamesByType = {};
+    leadFieldNames.forEach((name) => {
+        let type = leadFieldDefinitions[name].type || 'text';
+        if (type === 'website') { type = 'url'; }
+        if (!fieldNamesByType[type]) { fieldNamesByType[type] = []; }
+        fieldNamesByType[type].push(name);
+    });
+    const requiredFieldNames = leadFieldNames.filter((name) => !!leadFieldDefinitions[name].required);
+
+    let leadData = { isComplete: false };
+    leadFieldNames.forEach((name) => { leadData[name] = null; });
+    leadData.source = 'chatbot_detection';
 
     let isCollectingLeadData = false;
     let currentLeadField = null;
@@ -44,11 +59,21 @@ jQuery(function($) {
 
 
     // --- Patrones de detección de leads ---
-    const leadPatterns = {
-        email: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
-        phone: /(?:\+?34[\s-]?)(?:6|7|8|9)[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}|(?:\+?34[\s-]?)(?:91|93|94|95|96|97|98)[\s-]?\d{3}[\s-]?\d{3}/g,
-        website: /(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/g
-    };
+    const leadPatterns = {};
+    if ((fieldNamesByType.email || []).length) {
+        leadPatterns.email = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+    }
+    if ((fieldNamesByType.phone || []).length) {
+        leadPatterns.phone = /(?:\+?34[\s-]?)(?:6|7|8|9)[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}|(?:\+?34[\s-]?)(?:91|93|94|95|96|97|98)[\s-]?\d{3}[\s-]?\d{3}/g;
+    }
+    if ((fieldNamesByType.url || []).length) {
+        leadPatterns.url = /(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/g;
+    }
+
+    const COMMON_EMAIL_DOMAINS = [
+        'gmail.com', 'yahoo.es', 'yahoo.com', 'hotmail.com', 'hotmail.es', 'outlook.com',
+        'outlook.es', 'msn.com', 'live.com', 'aol.com', 'icloud.com', 'me.com', 'mac.com'
+    ];
 
     const leadButtonThreshold = 3;
 
@@ -308,48 +333,135 @@ function renderQuickReplies() {
 
     // --- Funciones de detección de leads ---
     function detectLeadData(message) {
+        if (!message) return false;
+
         let detected = false;
-        
-        const emailMatches = message.match(leadPatterns.email);
-        if (emailMatches && !leadData.email) {
-            leadData.email = emailMatches[0];
-            detected = true;
+
+        if (leadPatterns.email) {
+            const emailMatches = message.match(leadPatterns.email);
+            if (assignFieldMatches(emailMatches, 'email')) {
+                detected = true;
+            }
         }
-        
-        const phoneMatches = message.match(leadPatterns.phone);
-        if (phoneMatches && !leadData.phone) {
-            leadData.phone = phoneMatches[0];
-            detected = true;
+
+        if (leadPatterns.phone) {
+            const phoneMatches = message.match(leadPatterns.phone);
+            if (assignFieldMatches(phoneMatches, 'phone')) {
+                detected = true;
+            }
         }
-        
-        const websiteMatches = message.match(leadPatterns.website);
-        if (websiteMatches && !leadData.website) {
-            leadData.website = websiteMatches[0];
-            detected = true;
+
+        if (leadPatterns.url) {
+            const urlMatches = message.match(leadPatterns.url);
+            if (urlMatches && urlMatches.length) {
+                const filtered = [];
+                urlMatches.forEach((raw) => {
+                    if (!raw) return;
+                    const trimmed = raw.trim();
+                    if (!trimmed || /@/.test(trimmed)) return;
+                    const clean = trimmed.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/$/, '');
+                    if (COMMON_EMAIL_DOMAINS.indexOf(clean) !== -1) return;
+                    filtered.push(trimmed);
+                });
+                if (assignFieldMatches(filtered, 'url')) {
+                    detected = true;
+                }
+            }
         }
-        
+
         return detected;
     }
 
-    function checkLeadCompleteness() {
-        const hasContact = leadData.email || leadData.phone;
-
-        if (hasContact) {
-            leadData.isComplete = true;
-            saveLead();
-            return true;
+    function assignFieldMatches(matches, type) {
+        if (!Array.isArray(matches) || !matches.length) {
+            return false;
         }
 
+        const fields = fieldNamesByType[type] || [];
+        if (!fields.length) {
+            return false;
+        }
+
+        let updated = false;
+        const uniqueValues = Array.from(new Set(matches.map((value) => (value || '').trim()).filter(Boolean)));
+
+        uniqueValues.forEach((rawValue) => {
+            if (!rawValue) return;
+
+            for (let i = 0; i < fields.length; i++) {
+                const fieldName = fields[i];
+                if (leadData[fieldName]) {
+                    continue;
+                }
+
+                let normalized = rawValue;
+                if (type === 'url') {
+                    normalized = normalized.replace(/\/$/, '');
+                    if (!/^https?:\/\//i.test(normalized)) {
+                        normalized = `https://${normalized}`;
+                    }
+                } else if (type === 'phone') {
+                    normalized = normalized.replace(/[^0-9+\s\-.()]/g, '');
+                }
+
+                leadData[fieldName] = normalized;
+                updated = true;
+                break;
+            }
+        });
+
+        return updated;
+    }
+
+    function checkLeadCompleteness() {
         const missing = [];
-        if (!leadData.email) missing.push('email');
-        if (!leadData.phone) missing.push('phone');
+
+        requiredFieldNames.forEach((fieldName) => {
+            const value = leadData[fieldName];
+            if (value === null || (typeof value === 'string' && value.trim() === '')) {
+                missing.push(fieldName);
+            }
+        });
+
+        if (missing.length === 0) {
+            const hasAnyData = leadFieldNames.some((fieldName) => {
+                const value = leadData[fieldName];
+                return value !== null && (!(typeof value === 'string') || value.trim() !== '');
+            });
+
+            if (hasAnyData) {
+                leadData.isComplete = true;
+                saveLead();
+                return true;
+            }
+
+            return [];
+        }
 
         return missing;
     }
 
+    function buildLeadPayload() {
+        const payload = { source: leadData.source || 'chatbot_detection', isComplete: true };
+
+        leadFieldNames.forEach((fieldName) => {
+            const value = leadData[fieldName];
+            if (value === null) return;
+            if (typeof value === 'string' && value.trim() === '') return;
+            payload[fieldName] = value;
+        });
+
+        return payload;
+    }
+
     function saveLead() {
         if (!leadData.isComplete) return;
-        
+
+        const payload = buildLeadPayload();
+        if (Object.keys(payload).length <= 2) {
+            return;
+        }
+
         $.ajax({
             url: params.ajax_url,
             type: 'POST',
@@ -358,23 +470,22 @@ function renderQuickReplies() {
                 nonce: params.nonce,
                 log_id: logId,
                 assistant_id: params.assistant_id,
-                lead_data: leadData
+                lead_data: payload
             },
             success: function(response) {
                 if (response.success) {
                     console.log('Lead guardado correctamente');
-                    
+
                     setTimeout(() => {
                         addMessageToChat('bot', "¡Gracias! Hemos capturado tus datos de contacto. Un asesor se pondrá en contacto contigo pronto. ✅");
+                        conversationHistory.push({ role: 'assistant', content: '¡Gracias! Hemos capturado tus datos de contacto. Un asesor se pondrá en contacto contigo pronto. ✅' });
                     }, 500);
 
                     if (params.calendar_url) {
                         setTimeout(() => {
-                            addMessageToChat(
-                                'bot',
-                                '¡Perfecto! Aquí tienes la URL del calendario para que puedas reservar una llamada con nuestro equipo.',
-                                true
-                            );
+                            const calendarMessage = '¡Perfecto! Aquí tienes la URL del calendario para que puedas reservar una llamada con nuestro equipo.';
+                            addMessageToChat('bot', calendarMessage, true);
+                            conversationHistory.push({ role: 'assistant', content: calendarMessage });
                         }, 1500);
                     }
 
@@ -385,6 +496,31 @@ function renderQuickReplies() {
                 console.error('Error al guardar el lead');
             }
         });
+    }
+
+    function askForMissingLeadData(missingFields) {
+        if (!Array.isArray(missingFields) || !missingFields.length) {
+            return;
+        }
+
+        const labels = missingFields.map((field) => {
+            if (leadFieldDefinitions[field]) {
+                return leadFieldDefinitions[field].label || field;
+            }
+            return field;
+        });
+
+        let missingText = labels[0];
+        if (labels.length > 1) {
+            const last = labels.pop();
+            missingText = `${labels.join(', ')} y ${last}`;
+        }
+
+        const prompt = `Para continuar necesito ${missingText}. ¿Puedes compartirlo?`;
+        addMessageToChat('bot', prompt);
+        conversationHistory.push({ role: 'assistant', content: prompt });
+        isCollectingLeadData = true;
+        currentLeadField = missingFields[0];
     }
 
     function showThinkingIndicator() {

@@ -99,6 +99,7 @@ class AICP_Frontend_Loader {
         // Obtener configuración adicional
         $lead_auto_collect  = !empty($s['lead_auto_collect']);
         $calendar_url       = !empty($s['calendar_url']) ? esc_url($s['calendar_url']) : '';
+        $lead_fields_config = AICP_Lead_Manager::get_lead_field_config($assistant->ID, $s);
         $auto_open_enabled  = !empty($s['auto_open_enabled']);
         $auto_open_delay    = isset($s['auto_open_delay']) ? max(0, intval($s['auto_open_delay'])) : 0;
         $auto_open_duration = isset($s['auto_open_duration']) ? max(0, intval($s['auto_open_duration'])) : 0;
@@ -121,6 +122,7 @@ class AICP_Frontend_Loader {
 
             'lead_auto_collect'  => $lead_auto_collect,
             'calendar_url'       => $calendar_url,
+            'lead_fields'        => $lead_fields_config,
             'auto_open'          => [
                 'enabled'  => $auto_open_enabled,
                 'delay'    => $auto_open_delay,
@@ -156,16 +158,21 @@ class AICP_Frontend_Loader {
         // Sanitizar datos del lead
         $source = sanitize_text_field($lead_data['source'] ?? 'chatbot_detection');
 
-        $sanitized_lead_data = [
-            'email'        => sanitize_email($lead_data['email'] ?? ''),
-            'name'         => sanitize_text_field($lead_data['name'] ?? ''),
-            'phone'        => sanitize_text_field($lead_data['phone'] ?? ''),
-            'website'      => esc_url_raw($lead_data['website'] ?? ''),
-            'collected_at' => current_time('mysql'),
-            'source'       => $source,
-        ];
+        $assistant_settings = get_post_meta($assistant_id, '_aicp_assistant_settings', true);
+        if (!is_array($assistant_settings)) {
+            $assistant_settings = [];
+        }
 
-        $missing_fields = AICP_Lead_Manager::get_missing_fields($sanitized_lead_data, $assistant_id);
+        $field_definitions = AICP_Lead_Manager::get_lead_field_definitions($assistant_id, $assistant_settings);
+        $sanitized_lead_data = AICP_Lead_Manager::sanitize_lead_input($lead_data, $assistant_id, $assistant_settings, $field_definitions);
+
+        if (empty($sanitized_lead_data)) {
+            wp_send_json_error([
+                'message' => __('No se detectaron datos de contacto válidos.', 'ai-chatbot-pro'),
+            ]);
+        }
+
+        $missing_fields = AICP_Lead_Manager::get_missing_fields($sanitized_lead_data, $assistant_id, $assistant_settings, $field_definitions);
         if (!empty($missing_fields)) {
             wp_send_json_error([
                 'message'        => AICP_Lead_Manager::get_missing_data_message($missing_fields, $assistant_id),
@@ -173,6 +180,8 @@ class AICP_Frontend_Loader {
             ]);
         }
 
+        $sanitized_lead_data['collected_at'] = current_time('mysql');
+        $sanitized_lead_data['source']       = $source;
         $sanitized_lead_data['is_complete'] = true;
 
         global $wpdb;
@@ -229,11 +238,16 @@ class AICP_Frontend_Loader {
         global $wpdb;
         $table = $wpdb->prefix . 'aicp_chat_logs';
 
+        $lead_payload = $lead_info['data'];
+        if (!isset($lead_payload['captured_at'])) {
+            $lead_payload['captured_at'] = current_time('mysql');
+        }
+
         $updated = $wpdb->update(
             $table,
             [
                 'has_lead'   => 1,
-                'lead_data'  => wp_json_encode($lead_info['data'], JSON_UNESCAPED_UNICODE),
+                'lead_data'  => wp_json_encode($lead_payload, JSON_UNESCAPED_UNICODE),
                 'lead_status'=> 'complete'
             ],
             ['id' => $log_id],
@@ -242,8 +256,8 @@ class AICP_Frontend_Loader {
         );
 
         if ($updated !== false) {
-            do_action('aicp_lead_detected', $lead_info['data'], $assistant_id, $log_id, 'complete');
-            wp_send_json_success(['lead' => $lead_info['data']]);
+            do_action('aicp_lead_detected', $lead_payload, $assistant_id, $log_id, 'complete');
+            wp_send_json_success(['lead' => $lead_payload]);
         } else {
             wp_send_json_error(['message' => __('Error al guardar el lead.', 'ai-chatbot-pro')]);
         }

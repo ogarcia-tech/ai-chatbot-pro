@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 class AICP_Lead_Manager {
-    
+
     /**
      * Patrones para detectar emails, teléfonos y URLs
      */
@@ -21,6 +21,116 @@ class AICP_Lead_Manager {
         '/\b\d{3}[ -]?\d{3}[ -]?\d{3}\b/', // Formato simple
     ];
     private static $url_pattern = '/(https?:\/\/)?([\w\-]+\.)+[\w\-]+(\/[\w\-._~:\/?#[\]@!$&\'()*+,;=]*)?/';
+
+    /**
+     * Sanitizar un valor de campo en función de su tipo
+     */
+    private static function sanitize_field_value($value, $type) {
+        if (is_array($value)) {
+            $value = implode(', ', array_map('sanitize_text_field', $value));
+        }
+
+        $value = is_scalar($value) ? (string) $value : '';
+
+        switch ($type) {
+            case 'email':
+                return sanitize_email($value);
+            case 'url':
+            case 'website':
+                return esc_url_raw($value);
+            case 'phone':
+                $clean = preg_replace('/[^0-9+\s\-().]/', '', $value);
+                return sanitize_text_field($clean);
+            case 'number':
+                return is_numeric($value) ? (string) $value : sanitize_text_field($value);
+            case 'textarea':
+            case 'date':
+            case 'text':
+            default:
+                return sanitize_text_field($value);
+        }
+    }
+
+    /**
+     * Sanitizar el conjunto de datos de un lead en base a la configuración del asistente
+     */
+    public static function sanitize_lead_input($lead_input, $assistant_id = 0, $assistant_settings = null, $field_definitions = null) {
+        $lead_input = is_array($lead_input) ? $lead_input : [];
+
+        if ($field_definitions === null) {
+            $field_definitions = self::get_lead_field_definitions($assistant_id, $assistant_settings);
+        }
+
+        $sanitized = [];
+        foreach ($field_definitions as $name => $definition) {
+            if (!array_key_exists($name, $lead_input)) {
+                continue;
+            }
+
+            $value = self::sanitize_field_value($lead_input[$name], $definition['type']);
+            if ($value !== '' && $value !== null) {
+                $sanitized[$name] = $value;
+            }
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * Extraer payloads estructurados de leads presentes en un contenido
+     */
+    private static function extract_structured_lead_payloads($content) {
+        $payloads = [];
+
+        if (!is_string($content) || strpos($content, '{') === false) {
+            return $payloads;
+        }
+
+        if (preg_match_all('/\{(?:[^{}]|(?R))*\}/m', $content, $matches)) {
+            foreach ($matches[0] as $json_candidate) {
+                $decoded = json_decode($json_candidate, true);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    continue;
+                }
+                self::collect_structured_payloads($decoded, $payloads);
+            }
+        }
+
+        return $payloads;
+    }
+
+    /**
+     * Recoger datos de lead de estructuras anidadas
+     */
+    private static function collect_structured_payloads($decoded, &$payloads) {
+        if (!is_array($decoded)) {
+            return;
+        }
+
+        if (isset($decoded['action']) && is_string($decoded['action']) && 'create_lead' === strtolower($decoded['action'])) {
+            $data = [];
+            if (isset($decoded['data']) && is_array($decoded['data'])) {
+                $data = $decoded['data'];
+            } else {
+                $data = $decoded;
+                unset($data['action']);
+            }
+
+            if (!empty($data)) {
+                $payloads[] = $data;
+            }
+        }
+
+        if (isset($decoded['create_lead']) && is_array($decoded['create_lead'])) {
+            $payloads[] = $decoded['create_lead'];
+        }
+
+        foreach ($decoded as $value) {
+            if (is_array($value)) {
+                self::collect_structured_payloads($value, $payloads);
+            }
+        }
+    }
     
     /**
      * Inicializar la clase
@@ -49,7 +159,6 @@ class AICP_Lead_Manager {
         $field_definitions = self::get_lead_field_definitions($assistant_id, $assistant_settings);
         $required_fields   = self::extract_required_field_names($field_definitions);
         $lead_data         = [];
-        $has_partial_data  = false;
 
         if (!is_array($conversation)) {
             return [
@@ -63,58 +172,108 @@ class AICP_Lead_Manager {
         $user_messages = array_filter($conversation, function($message) {
             return isset($message['role']) && $message['role'] === 'user';
         });
-        $user_text = implode("\n", array_column($user_messages, 'content'));
-        $common_email_domains = [
-            'gmail.com', 'yahoo.es', 'yahoo.com', 'hotmail.com', 'hotmail.es', 'outlook.com',
-            'outlook.es', 'msn.com', 'live.com', 'aol.com', 'icloud.com', 'me.com', 'mac.com'
-        ];
+        $assistant_messages = array_filter($conversation, function($message) {
+            return isset($message['role']) && $message['role'] === 'assistant';
+        });
 
-        if (preg_match(self::$email_pattern, $user_text, $matches)) {
-            $lead_data['email'] = sanitize_email($matches[0]);
-            $has_partial_data   = true;
-        }
-
-        if (!isset($lead_data['phone'])) {
-            foreach (self::$phone_patterns as $pattern) {
-                if (preg_match($pattern, $user_text, $matches)) {
-                    $phone = preg_replace('/[^\d+]/', '', $matches[0]);
-                    if (strlen($phone) >= 9) {
-                        $lead_data['phone'] = sanitize_text_field($matches[0]);
-                        $has_partial_data   = true;
-                        break;
-                    }
+        foreach ($assistant_messages as $message) {
+            $content = isset($message['content']) ? $message['content'] : '';
+            foreach (self::extract_structured_lead_payloads($content) as $payload) {
+                $structured_data = self::sanitize_lead_input($payload, $assistant_id, $assistant_settings, $field_definitions);
+                if (!empty($structured_data)) {
+                    $lead_data = array_merge($lead_data, $structured_data);
                 }
             }
         }
 
-        if (preg_match_all(self::$url_pattern, $user_text, $matches)) {
-            foreach ($matches[0] as $potential_url) {
-                $cleaned_url = preg_replace('/^(https?:\/\/)?(www\.)?/', '', rtrim($potential_url, '/'));
+        $user_text = implode("\n", array_column($user_messages, 'content'));
+        $fields_by_type = [];
+        foreach ($field_definitions as $name => $definition) {
+            $type = $definition['type'];
+            if ($type === 'website') {
+                $type = 'url';
+            }
+            if (!isset($fields_by_type[$type])) {
+                $fields_by_type[$type] = [];
+            }
+            $fields_by_type[$type][] = $name;
+        }
 
-                if (!in_array($cleaned_url, $common_email_domains)) {
+        $assignFirstAvailable = function($matches, $type) use (&$lead_data, $field_definitions, $fields_by_type) {
+            if (empty($matches) || empty($fields_by_type[$type])) {
+                return;
+            }
+
+            foreach ($matches as $value) {
+                foreach ($fields_by_type[$type] as $field_name) {
+                    if (!empty($lead_data[$field_name])) {
+                        continue;
+                    }
+
+                    $sanitized = self::sanitize_field_value($value, $field_definitions[$field_name]['type']);
+                    if ($sanitized !== '' && $sanitized !== null) {
+                        $lead_data[$field_name] = $sanitized;
+                        continue 2;
+                    }
+                }
+            }
+        };
+
+        if (!empty($fields_by_type['email']) && preg_match_all(self::$email_pattern, $user_text, $email_matches)) {
+            $assignFirstAvailable(array_unique($email_matches[0]), 'email');
+        }
+
+        if (!empty($fields_by_type['phone'])) {
+            foreach (self::$phone_patterns as $pattern) {
+                if (preg_match_all($pattern, $user_text, $phone_matches)) {
+                    $assignFirstAvailable(array_unique($phone_matches[0]), 'phone');
+                    break;
+                }
+            }
+        }
+
+        if (!empty($fields_by_type['url']) || !empty($fields_by_type['website'])) {
+            if (preg_match_all(self::$url_pattern, $user_text, $url_matches)) {
+                $common_email_domains = [
+                    'gmail.com', 'yahoo.es', 'yahoo.com', 'hotmail.com', 'hotmail.es', 'outlook.com',
+                    'outlook.es', 'msn.com', 'live.com', 'aol.com', 'icloud.com', 'me.com', 'mac.com'
+                ];
+                $urls = [];
+                foreach ($url_matches[0] as $potential_url) {
+                    $cleaned_url = preg_replace('/^(https?:\/\/)?(www\.)?/', '', rtrim($potential_url, '/'));
+                    if (in_array($cleaned_url, $urls, true) || in_array($cleaned_url, $common_email_domains, true)) {
+                        continue;
+                    }
+
                     $url = $potential_url;
                     if (!preg_match('/^https?:\/\//', $url)) {
                         $url = 'https://' . $url;
                     }
+
                     if (filter_var($url, FILTER_VALIDATE_URL)) {
-                        $lead_data['website'] = esc_url_raw($url);
-                        $has_partial_data     = true;
-                        break;
+                        $urls[] = $url;
                     }
+                }
+
+                if (!empty($urls)) {
+                    $type_key = !empty($fields_by_type['url']) ? 'url' : 'website';
+                    $assignFirstAvailable($urls, $type_key);
                 }
             }
         }
 
-        if (!isset($lead_data['name'])) {
+        if (isset($field_definitions['name']) && empty($lead_data['name'])) {
             $name = self::extract_name($user_text);
             if ($name) {
-                $lead_data['name'] = sanitize_text_field($name);
-                $has_partial_data  = true;
+                $lead_data['name'] = self::sanitize_field_value($name, $field_definitions['name']['type']);
             }
         }
 
+        $lead_data = self::sanitize_lead_input($lead_data, $assistant_id, $assistant_settings, $field_definitions);
         $lead_data = array_intersect_key($lead_data, $field_definitions);
+
         $missing_fields = self::get_missing_fields($lead_data, $assistant_id, $assistant_settings, $field_definitions);
+        $has_partial_data = !empty($lead_data);
         $is_complete    = $has_partial_data && empty($missing_fields);
 
         return [
@@ -168,11 +327,16 @@ class AICP_Lead_Manager {
         global $wpdb;
         $table_name = $wpdb->prefix . 'aicp_chat_logs';
 
+        $lead_payload = $lead_info['data'];
+        if (!isset($lead_payload['captured_at'])) {
+            $lead_payload['captured_at'] = current_time('mysql');
+        }
+
         $wpdb->update(
             $table_name,
             [
                 'has_lead'    => 1,
-                'lead_data'   => wp_json_encode($lead_info['data'], JSON_UNESCAPED_UNICODE),
+                'lead_data'   => wp_json_encode($lead_payload, JSON_UNESCAPED_UNICODE),
                 'lead_status' => 'complete'
             ],
             ['id' => $log_id],
@@ -180,7 +344,7 @@ class AICP_Lead_Manager {
             ['%d']
         );
 
-        do_action('aicp_lead_detected', $lead_info['data'], $assistant_id, $log_id, 'complete');
+        do_action('aicp_lead_detected', $lead_payload, $assistant_id, $log_id, 'complete');
     }
 
     private static function get_lead_field_definitions($assistant_id = 0, $assistant_settings = null) {
@@ -237,23 +401,7 @@ class AICP_Lead_Manager {
             ];
         }
 
-        $definitions = array_merge($defaults, $normalized);
-
-        $has_required = false;
-        foreach ($definitions as $definition) {
-            if (!empty($definition['required'])) {
-                $has_required = true;
-                break;
-            }
-        }
-
-        if (!$has_required) {
-            foreach ($definitions as $name => $definition) {
-                $definitions[$name]['required'] = true;
-            }
-        }
-
-        return $definitions;
+        return array_merge($defaults, $normalized);
     }
 
     private static function extract_required_field_names($field_definitions) {
@@ -479,6 +627,21 @@ class AICP_Lead_Manager {
         }
 
         return $stats;
+    }
+
+    public static function get_lead_field_config($assistant_id = 0, $assistant_settings = null) {
+        $definitions = self::get_lead_field_definitions($assistant_id, $assistant_settings);
+        $config = [];
+
+        foreach ($definitions as $name => $definition) {
+            $config[$name] = [
+                'label'    => $definition['label'],
+                'required' => !empty($definition['required']),
+                'type'     => $definition['type'],
+            ];
+        }
+
+        return $config;
     }
 
     public static function get_missing_data_message($missing_fields, $assistant_id = 0, $assistant_settings = null) {

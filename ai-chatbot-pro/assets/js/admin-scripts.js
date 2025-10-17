@@ -5,6 +5,9 @@ jQuery(function($) {
 
     if (typeof aicp_admin_params === 'undefined') return;
 
+    const leadFieldDefinitions = aicp_admin_params.lead_fields || {};
+    const escapeHtml = (text) => $('<div/>').text(text == null ? '' : String(text)).html();
+
     // Inicializar color pickers
     $('.aicp-color-picker').wpColorPicker({
         change: function(event, ui) {
@@ -80,10 +83,26 @@ jQuery(function($) {
 
         function populateModal(data, logId) {
             let leadHtml = '';
-            if (data.has_lead && data.lead_data) {
-                leadHtml = '<div class="aicp-modal-lead-data"><h3>Lead Capturado</h3>';
-                for (const [key, value] of Object.entries(data.lead_data)) { leadHtml += `<strong>${key.charAt(0).toUpperCase() + key.slice(1)}:</strong> ${value}<br>`; }
-                leadHtml += '</div>';
+            if (data.has_lead && data.lead_data && typeof data.lead_data === 'object' && !Array.isArray(data.lead_data)) {
+                const rows = [];
+                Object.entries(data.lead_data).forEach(([key, value]) => {
+                    if (key === 'is_complete') {
+                        return;
+                    }
+                    const definition = leadFieldDefinitions[key];
+                    const label = definition && definition.label ? definition.label : key.charAt(0).toUpperCase() + key.slice(1);
+                    let displayValue = value;
+                    if (Array.isArray(displayValue)) {
+                        displayValue = displayValue.join(', ');
+                    } else if (typeof displayValue === 'object' && displayValue !== null) {
+                        displayValue = JSON.stringify(displayValue);
+                    }
+                    rows.push(`<strong>${escapeHtml(label)}:</strong> ${escapeHtml(displayValue)}<br>`);
+                });
+
+                if (rows.length) {
+                    leadHtml = '<div class="aicp-modal-lead-data"><h3>Lead Capturado</h3>' + rows.join('') + '</div>';
+                }
             }
             let chatHtml = '<h3>Transcripción del Chat</h3><div class="aicp-modal-chat-transcript">';
             if (Array.isArray(data.conversation)) {
@@ -156,6 +175,9 @@ jQuery(function($) {
     function handleLeadQuestions() {
         $(document).on('click', '.aicp-add-lead-field', function(e) {
             e.preventDefault();
+            if ($(this).prop('disabled') || $(this).closest('fieldset').is(':disabled')) {
+                return;
+            }
             const $tableBody = $('.aicp-lead-fields-table tbody');
             const fieldId = 'field_' + Date.now();
             const newRow = `
@@ -177,6 +199,9 @@ jQuery(function($) {
 
         $(document).on('click', '.aicp-remove-lead-field', function(e) {
             e.preventDefault();
+            if ($(this).closest('fieldset').is(':disabled')) {
+                return;
+            }
             $(this).closest('tr').remove();
         });
     }
