@@ -1,9 +1,17 @@
 "use strict";
 var ASSISTANT_TEMPLATES = [];
 function loadAssistantTemplates(url) {
-    return fetch(url)
-        .then(function (res) { return res.json(); })
+    return fetch(url, { credentials: 'same-origin' })
+        .then(function (res) {
+        if (!res.ok) {
+            throw new Error('Failed to load assistant templates.');
+        }
+        return res.json();
+    })
         .then(function (data) {
+        if (!Array.isArray(data)) {
+            return [];
+        }
         ASSISTANT_TEMPLATES = data;
         window.ASSISTANT_TEMPLATES = ASSISTANT_TEMPLATES;
         return ASSISTANT_TEMPLATES;
