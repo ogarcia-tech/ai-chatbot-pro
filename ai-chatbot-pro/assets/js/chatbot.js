@@ -7,6 +7,7 @@ jQuery(function($) {
     if (!params) return;
     params.quick_replies = Array.isArray(params.quick_replies) ? params.quick_replies : [];
     const forwardingActive = !!params.forwarding_active;
+    const leadFeaturesEnabled = !forwardingActive;
 
     if (forwardingActive) {
         params.quick_replies = [];
@@ -29,20 +30,27 @@ jQuery(function($) {
         website: { label: 'sitio web', required: false, type: 'url' }
     };
 
-    const leadFieldDefinitions = defaultLeadDefinitions;
+    const leadFieldDefinitions = leadFeaturesEnabled ? defaultLeadDefinitions : {};
     const leadFieldNames = Object.keys(leadFieldDefinitions);
     const fieldNamesByType = {};
-    leadFieldNames.forEach((name) => {
-        let type = leadFieldDefinitions[name].type || 'text';
-        if (type === 'website') { type = 'url'; }
-        if (!fieldNamesByType[type]) { fieldNamesByType[type] = []; }
-        fieldNamesByType[type].push(name);
-    });
-    const requiredFieldNames = leadFieldNames.filter((name) => !!leadFieldDefinitions[name].required);
+    if (leadFeaturesEnabled) {
+        leadFieldNames.forEach((name) => {
+            let type = leadFieldDefinitions[name].type || 'text';
+            if (type === 'website') { type = 'url'; }
+            if (!fieldNamesByType[type]) { fieldNamesByType[type] = []; }
+            fieldNamesByType[type].push(name);
+        });
+    }
+    const requiredFieldNames = leadFeaturesEnabled
+        ? leadFieldNames.filter((name) => !!leadFieldDefinitions[name].required)
+        : [];
 
-    let leadData = { isComplete: false };
-    leadFieldNames.forEach((name) => { leadData[name] = null; });
-    leadData.source = 'chatbot_detection';
+    let leadData = null;
+    if (leadFeaturesEnabled) {
+        leadData = { isComplete: false };
+        leadFieldNames.forEach((name) => { leadData[name] = null; });
+        leadData.source = 'chatbot_detection';
+    }
 
     let isCollectingLeadData = false;
     let currentLeadField = null;
@@ -68,14 +76,16 @@ jQuery(function($) {
 
     // --- Patrones de detección de leads ---
     const leadPatterns = {};
-    if ((fieldNamesByType.email || []).length) {
-        leadPatterns.email = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
-    }
-    if ((fieldNamesByType.phone || []).length) {
-        leadPatterns.phone = /(?:\+?34[\s-]?)(?:6|7|8|9)[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}|(?:\+?34[\s-]?)(?:91|93|94|95|96|97|98)[\s-]?\d{3}[\s-]?\d{3}/g;
-    }
-    if ((fieldNamesByType.url || []).length) {
-        leadPatterns.url = /(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/g;
+    if (leadFeaturesEnabled) {
+        if ((fieldNamesByType.email || []).length) {
+            leadPatterns.email = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+        }
+        if ((fieldNamesByType.phone || []).length) {
+            leadPatterns.phone = /(?:\+?34[\s-]?)(?:6|7|8|9)[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}|(?:\+?34[\s-]?)(?:91|93|94|95|96|97|98)[\s-]?\d{3}[\s-]?\d{3}/g;
+        }
+        if ((fieldNamesByType.url || []).length) {
+            leadPatterns.url = /(?:https?:\/\/)?(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/g;
+        }
     }
 
     const COMMON_EMAIL_DOMAINS = [
@@ -349,7 +359,7 @@ function renderQuickReplies() {
 
     // --- Funciones de detección de leads ---
     function detectLeadData(message) {
-        if (!message) return false;
+        if (!leadFeaturesEnabled || !message) return false;
 
         let detected = false;
 
@@ -389,6 +399,9 @@ function renderQuickReplies() {
     }
 
     function assignFieldMatches(matches, type) {
+        if (!leadFeaturesEnabled) {
+            return false;
+        }
         if (!Array.isArray(matches) || !matches.length) {
             return false;
         }
@@ -430,6 +443,9 @@ function renderQuickReplies() {
     }
 
     function checkLeadCompleteness() {
+        if (!leadFeaturesEnabled) {
+            return true;
+        }
         const missing = [];
 
         requiredFieldNames.forEach((fieldName) => {
@@ -458,6 +474,9 @@ function renderQuickReplies() {
     }
 
     function buildLeadPayload() {
+        if (!leadFeaturesEnabled) {
+            return {};
+        }
         const payload = { source: leadData.source || 'chatbot_detection', isComplete: true };
 
         leadFieldNames.forEach((fieldName) => {
@@ -471,6 +490,9 @@ function renderQuickReplies() {
     }
 
     function saveLead() {
+        if (!leadFeaturesEnabled) {
+            return;
+        }
         if (!leadData.isComplete) return;
 
         const payload = buildLeadPayload();
@@ -515,6 +537,9 @@ function renderQuickReplies() {
     }
 
     function askForMissingLeadData(missingFields) {
+        if (!leadFeaturesEnabled) {
+            return;
+        }
         if (!Array.isArray(missingFields) || !missingFields.length) {
             return;
         }
@@ -563,6 +588,7 @@ function renderQuickReplies() {
     }
 
     function finalizeChat() {
+        if (forwardingActive) return;
         if (isChatEnded) return;
         isChatEnded = true;
         clearTimeout(inactivityTimer);
@@ -602,7 +628,7 @@ function renderQuickReplies() {
         resetInactivityTimer();
         userMessageCount++;
 
-        const leadDetected = detectLeadData(message);
+        const leadDetected = leadFeaturesEnabled ? detectLeadData(message) : false;
 
         conversationHistory.push({ role: 'user', content: message });
         markUserInteraction();
@@ -616,7 +642,7 @@ function renderQuickReplies() {
         showThinkingIndicator();
         $('#aicp-send-button').prop('disabled', true);
 
-        if (isCollectingLeadData && leadDetected) {
+        if (leadFeaturesEnabled && isCollectingLeadData && leadDetected) {
             currentLeadField = null;
             isCollectingLeadData = false;
 
@@ -640,7 +666,7 @@ function renderQuickReplies() {
                 assistant_id: params.assistant_id,
                 history: conversationHistory,
                 log_id: logId,
-                lead_data: leadData,
+                lead_data: leadFeaturesEnabled ? leadData : null,
                 page_context: getPageContext(),
                 session_id: sessionId
             },
@@ -658,11 +684,18 @@ function renderQuickReplies() {
                     const leadStatus = response.data.lead_status;
                     const missing = response.data.missing_fields || [];
 
-                    if (leadStatus === 'partial' && typeof window.aicpLeadMissing === 'function') {
+                    if (leadFeaturesEnabled && leadStatus === 'partial' && typeof window.aicpLeadMissing === 'function') {
                         window.aicpLeadMissing({
                             logId: logId,
                             assistantId: params.assistant_id,
                             missingFields: missing
+                        });
+                    }
+
+                    if (response.data.webhook_metadata) {
+                        applyWebhookMetadata(response.data.webhook_metadata, {
+                            logId,
+                            sessionId,
                         });
                     }
                 } else {
@@ -686,6 +719,61 @@ function renderQuickReplies() {
         if (userMessage) {
            $input.val('');
            sendMessage(userMessage);
+        }
+    }
+
+    function applyWebhookMetadata(metadata, context = {}) {
+        if (!metadata || typeof metadata !== 'object') {
+            return;
+        }
+
+        if (Array.isArray(metadata.quick_replies)) {
+            params.quick_replies = metadata.quick_replies
+                .filter((item) => typeof item === 'string' && item.trim() !== '')
+                .map((item) => item.trim());
+            renderQuickReplies();
+        }
+
+        if (Array.isArray(metadata.extra_messages)) {
+            metadata.extra_messages
+                .filter((item) => typeof item === 'string' && item.trim() !== '')
+                .forEach((message) => {
+                    const trimmed = message.trim();
+                    conversationHistory.push({ role: 'assistant', content: trimmed });
+                    addMessageToChat('bot', trimmed);
+                });
+        }
+
+        if (typeof metadata.session_id === 'string' && metadata.session_id) {
+            sessionId = metadata.session_id;
+        }
+
+        if (typeof metadata.auto_close_seconds === 'number' && metadata.auto_close_seconds > 0) {
+            setTimeout(() => {
+                if (isChatOpen) {
+                    closeChatWindow(true);
+                }
+            }, metadata.auto_close_seconds * 1000);
+        }
+
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+            try {
+                window.dispatchEvent(new CustomEvent('aicp:webhookResponse', {
+                    detail: {
+                        assistantId: params.assistant_id,
+                        metadata,
+                        context,
+                    },
+                }));
+            } catch (error) {
+                if (typeof console !== 'undefined' && console.error) {
+                    console.error('AI Chatbot Pro: error al despachar el evento webhookResponse', error);
+                }
+            }
+        }
+
+        if (typeof console !== 'undefined' && console.info) {
+            console.info('AI Chatbot Pro webhook metadata:', metadata);
         }
     }
     

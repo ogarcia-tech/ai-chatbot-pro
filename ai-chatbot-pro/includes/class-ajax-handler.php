@@ -317,11 +317,19 @@ class AICP_Ajax_Handler {
         $full_history = $history;
         $full_history[] = ['role' => 'assistant', 'content' => $reply];
 
-        AICP_Session_Memory::persist($session_id, $client_ip, $full_history, $assistant_id);
+        $lead_info = [
+            'is_complete'    => false,
+            'has_lead'       => false,
+            'missing_fields' => [],
+            'data'           => [],
+        ];
 
-        $lead_info = AICP_Lead_Manager::detect_contact_data($full_history, $assistant_id, $s);
-
-        $lead_payload = $lead_info['is_complete'] ? $lead_info['data'] : [];
+        if (!$use_webhook) {
+            $lead_info = AICP_Lead_Manager::detect_contact_data($full_history, $assistant_id, $s);
+            $lead_payload = $lead_info['is_complete'] ? $lead_info['data'] : [];
+        } else {
+            $lead_payload = [];
+        }
         $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $full_history, $lead_payload);
 
         $response_payload = [
@@ -394,6 +402,25 @@ class AICP_Ajax_Handler {
 
         if (!$assistant_id || empty($conversation)) {
             wp_send_json_error(['message' => __('Datos inválidos.', 'ai-chatbot-pro')]);
+        }
+
+        $assistant_settings = get_post_meta($assistant_id, '_aicp_assistant_settings', true);
+        if (!is_array($assistant_settings)) {
+            $assistant_settings = [];
+        }
+
+        $webhook_active = !empty($assistant_settings['forward_to_webhook']) && !empty($assistant_settings['forward_webhook_url']);
+
+        if ($webhook_active) {
+            $session_id = self::ensure_session_id($incoming_session_id);
+            $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $conversation);
+
+            wp_send_json_success([
+                'status'      => 'skipped',
+                'session_id'  => $session_id,
+                'log_id'      => $new_log_id,
+                'message'     => __('El asistente está integrado con un webhook externo; no se procesó el lead localmente.', 'ai-chatbot-pro'),
+            ]);
         }
 
         $global_settings = get_option('aicp_settings');
