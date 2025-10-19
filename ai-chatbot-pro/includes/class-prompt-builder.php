@@ -6,12 +6,16 @@ class AICP_Prompt_Builder {
 
     private static function get_template($id) {
         if (self::$templates === null) {
-            $file = AICP_PLUGIN_DIR . 'assistant_templates.json';
-            if (file_exists($file)) {
-                $data = json_decode(file_get_contents($file), true);
-                self::$templates = is_array($data) ? $data : [];
+            if (function_exists('aicp_get_assistant_templates')) {
+                self::$templates = aicp_get_assistant_templates();
             } else {
-                self::$templates = [];
+                $file = AICP_PLUGIN_DIR . 'assistant_templates.json';
+                if (file_exists($file)) {
+                    $data = json_decode(file_get_contents($file), true);
+                    self::$templates = is_array($data) ? $data : [];
+                } else {
+                    self::$templates = [];
+                }
             }
         }
         foreach (self::$templates as $tpl) {

@@ -15,9 +15,17 @@ interface AssistantTemplate {
 let ASSISTANT_TEMPLATES: AssistantTemplate[] = [];
 
 function loadAssistantTemplates(url: string): Promise<AssistantTemplate[]> {
-  return fetch(url)
-    .then(res => res.json())
+  return fetch(url, { credentials: 'same-origin' })
+    .then(res => {
+      if (!res.ok) {
+        throw new Error('Failed to load assistant templates.');
+      }
+      return res.json();
+    })
     .then((data: AssistantTemplate[]) => {
+      if (!Array.isArray(data)) {
+        return [];
+      }
       ASSISTANT_TEMPLATES = data;
       (window as any).ASSISTANT_TEMPLATES = ASSISTANT_TEMPLATES;
       return ASSISTANT_TEMPLATES;

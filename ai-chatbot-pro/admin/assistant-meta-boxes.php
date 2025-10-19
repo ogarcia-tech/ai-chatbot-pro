@@ -106,7 +106,7 @@ function aicp_admin_scripts($hook) {
         'default_bot_avatar' => $default_bot_avatar,
         'default_user_avatar' => $default_user_avatar,
         'default_open_icon' => $default_open_icon,
-        'templates_url' => AICP_PLUGIN_URL . 'assistant_templates.json',
+        'templates_url' => add_query_arg('action', 'aicp_get_templates', admin_url('admin-ajax.php')),
         'lead_fields' => AICP_Lead_Manager::get_lead_field_config($post_id, $settings),
         'initial_settings' => [
             'bot_avatar_url' => $settings['bot_avatar_url'] ?? $default_bot_avatar,

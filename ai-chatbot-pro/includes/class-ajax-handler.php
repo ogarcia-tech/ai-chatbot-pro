@@ -19,6 +19,8 @@ class AICP_Ajax_Handler {
         add_action('wp_ajax_nopriv_aicp_submit_lead_form', [__CLASS__, 'handle_submit_lead_form']);
         add_action('wp_ajax_aicp_finalize_chat', [__CLASS__, 'handle_finalize_chat']);
         add_action('wp_ajax_nopriv_aicp_finalize_chat', [__CLASS__, 'handle_finalize_chat']);
+        add_action('wp_ajax_aicp_get_templates', [__CLASS__, 'handle_get_templates']);
+        add_action('wp_ajax_nopriv_aicp_get_templates', [__CLASS__, 'handle_get_templates']);
     }
     
     private static function save_conversation($log_id, $assistant_id, $session_id, $conversation, $lead_data = []) {
@@ -172,6 +174,15 @@ class AICP_Ajax_Handler {
         }
 
         return $result;
+    }
+
+    public static function handle_get_templates() {
+        if (!function_exists('aicp_get_assistant_templates')) {
+            require_once AICP_PLUGIN_DIR . 'includes/template-functions.php';
+        }
+
+        $templates = aicp_get_assistant_templates(false);
+        wp_send_json($templates);
     }
 
     public static function handle_chat_request() {
