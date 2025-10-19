@@ -1,5 +1,5 @@
 /**
- * Lógica del frontend para AI Chatbot Pro v5.1.0
+ * Lógica del frontend para AI Chatbot Pro v6.0
  * Incluye detección de leads y funcionalidad de calendario
  */
 jQuery(function($) {
