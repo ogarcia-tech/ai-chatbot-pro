@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Chatbot Pro - Advanced Training
  * Description: Addon para AI Chatbot Pro que usa la API de Asistentes de OpenAI para un entrenamiento avanzado.
- * Version: 2.0
+ * Version: 6.0
  * Author: Óscar García
  */
 
@@ -66,7 +66,7 @@ function aicp_pro_enqueue_admin_scripts($hook) {
             'aicp-admin-pro-js',
             $plugin_url . 'assets/js/admin-pro.js',
             ['jquery', 'media-editor'],
-            '2.0', // Versión del script
+            '6.0', // Versión del script
             true
         );
 

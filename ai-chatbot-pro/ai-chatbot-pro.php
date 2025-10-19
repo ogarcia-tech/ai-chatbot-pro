@@ -3,7 +3,7 @@
  * Plugin Name:    AI Chatbot Pro
  * Plugin URI:    https://metricaweb.es/
  * Description:    Crea y gestiona asistentes de chat personalizables con la API de OpenAI mediante shortcodes.
- * Version:    5.1.0
+ * Version:    6.0
  * Author:    Óscar García / CEO Metricaweb
  * Author URI:    https://metricaweb.es/
  * Co-developed by:    Su Asistente de IA de Confianza 😉
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Definir constantes del plugin
-define('AICP_VERSION', '5.1.0');
+define('AICP_VERSION', '6.0');
 define('AICP_PLUGIN_FILE', __FILE__);
 define('AICP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AICP_PLUGIN_URL', plugin_dir_url(__FILE__));
