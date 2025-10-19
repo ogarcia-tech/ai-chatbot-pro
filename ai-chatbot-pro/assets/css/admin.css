@@ -10,6 +10,20 @@
     font-size: 9px; font-weight: bold; padding: 2px 6px;
     border-radius: 3px; margin-left: 5px; vertical-align: middle;
 }
+.aicp-nav-tab-wrapper .aicp-nav-tab--disabled {
+    color: #a0a5aa;
+    border-color: #dcdcde;
+    background: #f6f7f7;
+    cursor: not-allowed;
+}
+.aicp-nav-tab-wrapper .aicp-nav-tab--disabled:hover,
+.aicp-nav-tab-wrapper .aicp-nav-tab--disabled:focus {
+    color: #a0a5aa;
+    box-shadow: none;
+}
+.aicp-nav-tab-wrapper .aicp-nav-tab--disabled.nav-tab-active {
+    border-bottom-color: #dcdcde;
+}
 .aicp-pro-feature-wrapper { background-color: #fff; border: 1px solid #ddd; padding: 20px; text-align: center; }
 
 /* Layout de Diseño y Previsualización */

@@ -12,17 +12,25 @@ if (!defined('ABSPATH')) exit;
 function aicp_add_meta_boxes() {
     add_action('edit_form_top', function($post) {
         if ($post->post_type !== 'aicp_assistant') return;
+
+        $settings = get_post_meta($post->ID, '_aicp_assistant_settings', true);
+        $settings = is_array($settings) ? $settings : [];
+        $forwarding_active = !empty($settings['forward_to_webhook']) && !empty($settings['forward_webhook_url']);
+
+        $disabled_class = $forwarding_active ? ' aicp-nav-tab--disabled' : '';
+        $disabled_attr  = $forwarding_active ? ' aria-disabled="true" data-tab-disabled="1"' : '';
+
         echo '<h2 class="nav-tab-wrapper aicp-nav-tab-wrapper">';
-        echo '<a href="#aicp-tab-instructions" class="nav-tab nav-tab-active">' . __('Instrucciones', 'ai-chatbot-pro') . '</a>';
+        echo '<a href="#aicp-tab-instructions" class="nav-tab nav-tab-active' . $disabled_class . '" data-lockable-tab="1"' . $disabled_attr . '>' . __('Instrucciones', 'ai-chatbot-pro') . '</a>';
         echo '<a href="#aicp-tab-design" class="nav-tab">' . __('Diseño', 'ai-chatbot-pro') . '</a>';
-        echo '<a href="#aicp-tab-leads" class="nav-tab">' . __('Leads', 'ai-chatbot-pro') . '</a>';
+        echo '<a href="#aicp-tab-leads" class="nav-tab' . $disabled_class . '" data-lockable-tab="1"' . $disabled_attr . '>' . __('Leads', 'ai-chatbot-pro') . '</a>';
         echo '<a href="#aicp-tab-integrations" class="nav-tab">' . __('Integraciones', 'ai-chatbot-pro') . '</a>';
-        
+
         // Lógica corregida para mostrar la pestaña PRO o el mensaje de venta.
         if (class_exists('AICP_Pro_Features')) {
-            echo '<a href="#aicp-tab-pro" class="nav-tab">' . __('Funciones PRO', 'ai-chatbot-pro') . ' <span class="aicp-pro-tag">PRO</span></a>';
+            echo '<a href="#aicp-tab-pro" class="nav-tab' . $disabled_class . '" data-lockable-tab="1"' . $disabled_attr . '>' . __('Funciones PRO', 'ai-chatbot-pro') . ' <span class="aicp-pro-tag">PRO</span></a>';
         } else {
-             echo '<a href="#aicp-tab-pro-upsell" class="nav-tab">' . __('Funciones PRO', 'ai-chatbot-pro') . ' <span class="aicp-pro-tag">PRO</span></a>';
+             echo '<a href="#aicp-tab-pro-upsell" class="nav-tab' . $disabled_class . '" data-lockable-tab="1"' . $disabled_attr . '>' . __('Funciones PRO', 'ai-chatbot-pro') . ' <span class="aicp-pro-tag">PRO</span></a>';
         }
         echo '</h2>';
     });
@@ -128,6 +136,7 @@ function aicp_admin_scripts($hook) {
         ],
         'meta' => $meta,
         'webhook_warning' => __('Si activas el reenvío al webhook externo, el asistente ignorará las instrucciones internas y no podrás editarlas hasta desactivar la integración. ¿Deseas continuar?', 'ai-chatbot-pro'),
+        'webhook_lock_message' => __('La integración con webhook está activa. Desactívala para volver a entrenar el asistente o modificar estas opciones PRO.', 'ai-chatbot-pro'),
     ]);
 }
 add_action('admin_enqueue_scripts', 'aicp_admin_scripts');
@@ -174,7 +183,7 @@ function aicp_render_main_meta_box($post) {
     if (class_exists('AICP_Pro_Features')) : ?>
         <div id="aicp-tab-pro" class="<?php echo esc_attr($pro_tab_classes); ?>" style="display:none;" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
             <div class="notice notice-warning inline aicp-pro-lock-notice"<?php echo $forwarding_active ? '' : ' style="display:none;"'; ?>>
-                <p><?php _e('Las funciones PRO están bloqueadas porque el asistente está reenviando los mensajes a un webhook externo. Desactiva la integración para realizar cambios.', 'ai-chatbot-pro'); ?></p>
+                <p><?php _e('La integración con webhook está activa. Desactívala para volver a entrenar el asistente o modificar estas opciones PRO.', 'ai-chatbot-pro'); ?></p>
             </div>
             <?php
             do_action('aicp_pro_tab_content');
@@ -196,7 +205,7 @@ function aicp_render_instructions_tab($v) {
     $is_forwarding_enabled = !empty($v['forward_to_webhook']);
     ?>
     <div class="notice notice-warning inline aicp-instructions-lock-notice"<?php echo $is_forwarding_enabled ? '' : ' style="display:none;"'; ?>>
-        <p><?php _e('Las instrucciones están desactivadas porque el asistente reenvía los mensajes a un webhook externo. Desactiva la integración para volver a editarlas.', 'ai-chatbot-pro'); ?></p>
+        <p><?php _e('La integración con webhook está activa. Desactívala para volver a entrenar el asistente o modificar estas opciones PRO.', 'ai-chatbot-pro'); ?></p>
     </div>
     <div class="aicp-instructions-fields<?php echo $is_forwarding_enabled ? ' aicp-instructions-locked' : ''; ?>">
         <table class="form-table">
@@ -327,7 +336,7 @@ function aicp_render_leads_tab($assistant_id, $v) {
     echo '<h4>' . __('Ajustes de Captura de Leads', 'ai-chatbot-pro') . '</h4>';
 
     $notice_style = $integration_active ? '' : ' style="display:none;"';
-    echo '<div class="notice notice-warning inline aicp-leads-lock-notice"' . $notice_style . '><p>' . __('Las opciones de leads están bloqueadas porque el asistente está reenviando los mensajes a un webhook externo. Desactiva la integración para modificar estos ajustes.', 'ai-chatbot-pro') . '</p></div>';
+    echo '<div class="notice notice-warning inline aicp-leads-lock-notice"' . $notice_style . '><p>' . __('La integración con webhook está activa. Desactívala para volver a entrenar el asistente o modificar estas opciones PRO.', 'ai-chatbot-pro') . '</p></div>';
 
     $fieldset_classes = 'aicp-lead-settings';
     if ($integration_active) {
