@@ -167,6 +167,8 @@
 #aicp-analytics-page .aicp-stat-box h2 { font-size: 2.5em; margin: 0; color: #0073aa; }
 #aicp-analytics-page .aicp-stat-box p { margin: 5px 0 0; font-size: 1.1em; color: #555; }
 #aicp-analytics-page .aicp-analytics-section { margin-top: 40px; background: #fff; padding: 20px; }
+#aicp-analytics-page .aicp-chart-wrapper { position: relative; width: 100%; min-height: 280px; }
+#aicp-analytics-page .aicp-chart-wrapper canvas { width: 100% !important; height: 100% !important; }
 
 /* Previsualización en Vivo */
 #aicp-preview-container {
