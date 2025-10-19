@@ -79,6 +79,29 @@ class AICP_Ajax_Handler {
         return $session_id;
     }
 
+    private static function get_client_ip() {
+        $keys = [
+            'HTTP_CLIENT_IP',
+            'HTTP_X_FORWARDED_FOR',
+            'REMOTE_ADDR',
+        ];
+
+        foreach ($keys as $key) {
+            if (empty($_SERVER[$key])) {
+                continue;
+            }
+
+            $ip_list = explode(',', wp_unslash($_SERVER[$key]));
+            $candidate = trim($ip_list[0]);
+
+            if (filter_var($candidate, FILTER_VALIDATE_IP)) {
+                return $candidate;
+            }
+        }
+
+        return '0.0.0.0';
+    }
+
     private static function sanitize_lead_payload($lead_input) {
         $sanitized = [];
 
@@ -179,21 +202,32 @@ class AICP_Ajax_Handler {
 
         // --- INICIO DE LA MODIFICACIÓN ---
         $assistant_id = isset($_POST['assistant_id']) ? absint($_POST['assistant_id']) : 0;
+        if (empty($assistant_id)) {
+            wp_send_json_error(['message' => __('Datos inválidos.', 'ai-chatbot-pro')]);
+        }
+
         $history = isset($_POST['history']) && is_array($_POST['history']) ? wp_unslash($_POST['history']) : [];
         $log_id = isset($_POST['log_id']) ? absint($_POST['log_id']) : 0;
         // Se añade la recepción del contexto de la página
         $page_context = isset($_POST['page_context']) ? sanitize_textarea_field(wp_unslash($_POST['page_context'])) : '';
 
-        if (empty($assistant_id) || empty($history)) { 
-            wp_send_json_error(['message' => __('Datos inválidos.', 'ai-chatbot-pro')]); 
+        $incoming_session_id = isset($_POST['session_id']) ? wp_unslash($_POST['session_id']) : '';
+        $session_id = self::ensure_session_id($incoming_session_id);
+        $client_ip = self::get_client_ip();
+
+        if (!empty($history)) {
+            $history = AICP_Session_Memory::persist($session_id, $client_ip, $history, $assistant_id);
+        } else {
+            $history = AICP_Session_Memory::load($session_id, $client_ip, $assistant_id);
+        }
+
+        if (empty($assistant_id) || empty($history)) {
+            wp_send_json_error(['message' => __('Datos inválidos.', 'ai-chatbot-pro')]);
         }
 
         $global_settings = get_option('aicp_settings');
         $s = get_post_meta($assistant_id, '_aicp_assistant_settings', true);
         if (!is_array($s)) { $s = []; }
-
-        $incoming_session_id = isset($_POST['session_id']) ? wp_unslash($_POST['session_id']) : '';
-        $session_id = self::ensure_session_id($incoming_session_id);
 
         $lead_payload = [];
         if (isset($_POST['lead_data'])) {
@@ -205,7 +239,7 @@ class AICP_Ajax_Handler {
 
         $system_prompt = AICP_Prompt_Builder::build($s, $page_context);
 
-        $short_term_memory = array_slice($history, -10);
+        $short_term_memory = $history;
         $conversation = [];
         if ('' !== trim($system_prompt)) {
             $conversation[] = [
@@ -272,6 +306,8 @@ class AICP_Ajax_Handler {
         $full_history = $history;
         $full_history[] = ['role' => 'assistant', 'content' => $reply];
 
+        AICP_Session_Memory::persist($session_id, $client_ip, $full_history, $assistant_id);
+
         $lead_info = AICP_Lead_Manager::detect_contact_data($full_history, $assistant_id, $s);
 
         $lead_payload = $lead_info['is_complete'] ? $lead_info['data'] : [];
@@ -329,9 +365,21 @@ class AICP_Ajax_Handler {
         check_ajax_referer('aicp_chat_nonce', 'nonce');
 
         $assistant_id = isset($_POST['assistant_id']) ? absint($_POST['assistant_id']) : 0;
+        if (empty($assistant_id)) {
+            wp_send_json_error(['message' => __('Datos inválidos.', 'ai-chatbot-pro')]);
+        }
+
         $log_id       = isset($_POST['log_id']) ? absint($_POST['log_id']) : 0;
         $conversation = isset($_POST['conversation']) && is_array($_POST['conversation']) ? wp_unslash($_POST['conversation']) : [];
         $incoming_session_id = isset($_POST['session_id']) ? wp_unslash($_POST['session_id']) : '';
+        $session_id = self::ensure_session_id($incoming_session_id);
+        $client_ip = self::get_client_ip();
+
+        if (!empty($conversation)) {
+            $conversation = AICP_Session_Memory::persist($session_id, $client_ip, $conversation, $assistant_id);
+        } else {
+            $conversation = AICP_Session_Memory::load($session_id, $client_ip, $assistant_id);
+        }
 
         if (!$assistant_id || empty($conversation)) {
             wp_send_json_error(['message' => __('Datos inválidos.', 'ai-chatbot-pro')]);
@@ -392,7 +440,6 @@ class AICP_Ajax_Handler {
             }
         }
 
-        $session_id = self::ensure_session_id($incoming_session_id);
         $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $conversation);
 
         global $wpdb;

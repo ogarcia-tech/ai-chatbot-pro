@@ -154,6 +154,7 @@ final class AI_Chatbot_Pro {
 
         // Clases principales
         require_once AICP_PLUGIN_DIR . 'includes/template-functions.php';
+        require_once AICP_PLUGIN_DIR . 'includes/class-session-memory.php';
         require_once AICP_PLUGIN_DIR . 'includes/class-prompt-builder.php';
         require_once AICP_PLUGIN_DIR . 'includes/class-installer.php';
         require_once AICP_PLUGIN_DIR . 'includes/class-shortcode-handler.php';
