@@ -101,6 +101,14 @@ jQuery(function($) {
         inactivityTimer = setTimeout(finalizeChat, 45000);
     }
 
+    function resumeChatSession() {
+        if (!isChatEnded) return;
+        isChatEnded = false;
+        $('#aicp-chat-input').prop('disabled', false);
+        $('#aicp-send-button').prop('disabled', false);
+        resetInactivityTimer();
+    }
+
     function isFarewell(message) {
         if (!message) return false;
         return farewellPatterns.some(p => p.test(message.toLowerCase()));
@@ -599,7 +607,7 @@ function renderQuickReplies() {
                 session_id: sessionId
             },
             complete: () => {
-                // Resetear estado sin recargar
+                resumeChatSession();
             }
         });
     }
@@ -611,6 +619,10 @@ function renderQuickReplies() {
     }
 
     function sendMessage(message) {
+        if (isChatEnded) {
+            resumeChatSession();
+        }
+
         if (!message || isThinking || isChatEnded) return;
 
         resetInactivityTimer();

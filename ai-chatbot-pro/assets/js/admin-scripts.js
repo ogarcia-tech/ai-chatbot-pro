@@ -7,6 +7,25 @@ jQuery(function($) {
 
     const leadFieldDefinitions = aicp_admin_params.lead_fields || {};
     const escapeHtml = (text) => $('<div/>').text(text == null ? '' : String(text)).html();
+    const navLockMessage = aicp_admin_params.webhook_lock_message || '';
+
+    function setNavTabsLock(locked) {
+        const $tabs = $('.aicp-nav-tab-wrapper [data-lockable-tab="1"]');
+        $tabs.each(function() {
+            const $tab = $(this);
+            if (locked) {
+                $tab.addClass('aicp-nav-tab--disabled')
+                    .attr('aria-disabled', 'true')
+                    .attr('data-tab-disabled', '1')
+                    .data('tabDisabled', 1);
+            } else {
+                $tab.removeClass('aicp-nav-tab--disabled')
+                    .removeAttr('aria-disabled')
+                    .removeAttr('data-tab-disabled')
+                    .removeData('tabDisabled');
+            }
+        });
+    }
 
     // Inicializar color pickers
     $('.aicp-color-picker').wpColorPicker({
@@ -20,11 +39,21 @@ jQuery(function($) {
 
     function handleTabs() {
         $('.aicp-nav-tab-wrapper a').on('click', function(e) {
+            const $tab = $(this);
+            const isDisabled = $tab.attr('aria-disabled') === 'true' || $tab.data('tabDisabled') === 1;
+            if (isDisabled) {
+                e.preventDefault();
+                if (navLockMessage) {
+                    window.alert(navLockMessage);
+                }
+                return;
+            }
+
             e.preventDefault();
             $('.aicp-nav-tab-wrapper a').removeClass('nav-tab-active');
-            $(this).addClass('nav-tab-active');
+            $tab.addClass('nav-tab-active');
             $('.aicp-tab-content').hide();
-            const targetTab = $(this).attr('href');
+            const targetTab = $tab.attr('href');
             $(targetTab).show();
         });
         $('.aicp-tab-content').not(':first').hide();
@@ -306,6 +335,8 @@ jQuery(function($) {
                 $notice.hide();
             }
 
+            setNavTabsLock(locked);
+
             $lockableElements.each(function() {
                 const $el = $(this);
                 if ($el.hasClass('aicp-lock-hidden')) return;
@@ -324,6 +355,8 @@ jQuery(function($) {
         const initialLocked = $toggle.is(':checked') || !!(aicp_admin_params.initial_settings && aicp_admin_params.initial_settings.forward_to_webhook);
         if (initialLocked) {
             setLockedState(true);
+        } else {
+            setNavTabsLock(false);
         }
     }
 
