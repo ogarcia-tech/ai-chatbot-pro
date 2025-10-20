@@ -13,6 +13,7 @@ class AICP_Ajax_Handler {
         add_action('wp_ajax_nopriv_aicp_chat_request', [__CLASS__, 'handle_chat_request']);
         add_action('wp_ajax_aicp_delete_log', [__CLASS__, 'handle_delete_log']);
         add_action('wp_ajax_aicp_get_log_details', [__CLASS__, 'handle_get_log_details']);
+        add_action('wp_ajax_aicp_test_webhook', [__CLASS__, 'handle_test_webhook']);
         add_action('wp_ajax_nopriv_aicp_submit_feedback', [__CLASS__, 'handle_submit_feedback']);
         add_action('wp_ajax_aicp_submit_feedback', [__CLASS__, 'handle_submit_feedback']);
         add_action('wp_ajax_aicp_submit_lead_form', [__CLASS__, 'handle_submit_lead_form']);
@@ -165,14 +166,26 @@ class AICP_Ajax_Handler {
         ]);
 
         if (is_wp_error($response)) {
-            return $response;
+            return new WP_Error(
+                $response->get_error_code(),
+                $response->get_error_message(),
+                [
+                    'http_status'      => 0,
+                    'request_payload'  => $payload,
+                ]
+            );
         }
 
         $status = wp_remote_retrieve_response_code($response);
         if ($status >= 400) {
             return new WP_Error(
                 'webhook_http_error',
-                sprintf(__('El webhook devolvió un código HTTP %d.', 'ai-chatbot-pro'), $status)
+                sprintf(__('El webhook devolvió un código HTTP %d.', 'ai-chatbot-pro'), $status),
+                [
+                    'http_status'     => $status,
+                    'response_body'   => wp_remote_retrieve_body($response),
+                    'request_payload' => $payload,
+                ]
             );
         }
 
@@ -180,16 +193,35 @@ class AICP_Ajax_Handler {
         $data = json_decode($body, true);
 
         if (!is_array($data)) {
-            return new WP_Error('webhook_invalid_json', __('El webhook respondió con un JSON inválido.', 'ai-chatbot-pro'));
+            return new WP_Error(
+                'webhook_invalid_json',
+                __('El webhook respondió con un JSON inválido.', 'ai-chatbot-pro'),
+                [
+                    'http_status'     => $status,
+                    'response_body'   => $body,
+                    'request_payload' => $payload,
+                ]
+            );
         }
 
         if (!isset($data['reply']) || !is_string($data['reply']) || '' === trim($data['reply'])) {
-            return new WP_Error('webhook_missing_reply', __('El webhook no devolvió el campo "reply" con el texto de respuesta.', 'ai-chatbot-pro'));
+            return new WP_Error(
+                'webhook_missing_reply',
+                __('El webhook no devolvió el campo "reply" con el texto de respuesta.', 'ai-chatbot-pro'),
+                [
+                    'http_status'     => $status,
+                    'response_body'   => $body,
+                    'request_payload' => $payload,
+                ]
+            );
         }
 
         $result = [
             'reply'     => sanitize_textarea_field($data['reply']),
             'metadata'  => [],
+            'http_status' => $status,
+            'raw_body'    => $body,
+            'request_payload' => $payload,
         ];
 
         if (isset($data['metadata']) && is_array($data['metadata'])) {
@@ -197,6 +229,103 @@ class AICP_Ajax_Handler {
         }
 
         return $result;
+    }
+
+    public static function handle_test_webhook() {
+        check_ajax_referer('aicp_test_webhook_nonce', 'nonce');
+
+        $assistant_id = isset($_POST['assistant_id']) ? absint($_POST['assistant_id']) : 0;
+
+        if ($assistant_id > 0) {
+            if (!current_user_can('edit_post', $assistant_id)) {
+                wp_send_json_error(['message' => __('No tienes permisos para realizar esta acción.', 'ai-chatbot-pro')]);
+            }
+        } else {
+            if (!current_user_can('edit_posts')) {
+                wp_send_json_error(['message' => __('No tienes permisos para realizar esta acción.', 'ai-chatbot-pro')]);
+            }
+        }
+
+        $webhook_url = isset($_POST['webhook_url']) ? esc_url_raw(wp_unslash($_POST['webhook_url'])) : '';
+        if (empty($webhook_url) || !wp_http_validate_url($webhook_url)) {
+            wp_send_json_error(['message' => __('Introduce una URL de webhook válida antes de probar la conexión.', 'ai-chatbot-pro')]);
+        }
+
+        $secret = isset($_POST['secret']) ? sanitize_text_field(wp_unslash($_POST['secret'])) : '';
+        $timeout = isset($_POST['timeout']) ? intval($_POST['timeout']) : 15;
+        $timeout = max(5, min(120, $timeout));
+
+        $settings = [];
+        if ($assistant_id > 0) {
+            $settings = get_post_meta($assistant_id, '_aicp_assistant_settings', true);
+        }
+        if (!is_array($settings)) {
+            $settings = [];
+        }
+
+        $test_settings = $settings;
+        $test_settings['forward_webhook_url'] = $webhook_url;
+        $test_settings['forward_webhook_secret'] = $secret;
+        $test_settings['forward_webhook_timeout'] = $timeout;
+
+        $system_prompt = '';
+        if (!class_exists('AICP_Prompt_Builder')) {
+            require_once AICP_PLUGIN_DIR . 'includes/class-prompt-builder.php';
+        }
+        $system_prompt = AICP_Prompt_Builder::build($settings, '');
+
+        $conversation = [];
+        if ('' !== trim($system_prompt)) {
+            $conversation[] = [
+                'role'    => 'system',
+                'content' => $system_prompt,
+            ];
+        }
+
+        $test_message = __('Mensaje de prueba desde WordPress para comprobar el webhook.', 'ai-chatbot-pro');
+        $conversation[] = [
+            'role'    => 'user',
+            'content' => $test_message,
+        ];
+
+        $session_id = 'aicp_test_' . wp_generate_uuid4();
+        $page_context = __('Prueba manual del webhook desde el panel de administración.', 'ai-chatbot-pro');
+
+        $result = self::call_message_webhook($assistant_id, $test_settings, $session_id, $conversation, $page_context, [], $system_prompt);
+
+        if (is_wp_error($result)) {
+            $error_data = ['message' => $result->get_error_message()];
+            $extra = $result->get_error_data();
+            if (is_array($extra)) {
+                if (isset($extra['http_status'])) {
+                    $error_data['http_status'] = intval($extra['http_status']);
+                }
+                if (isset($extra['response_body'])) {
+                    $error_data['raw_body'] = $extra['response_body'];
+                }
+                if (isset($extra['request_payload'])) {
+                    $error_data['payload'] = $extra['request_payload'];
+                }
+            }
+            wp_send_json_error($error_data);
+        }
+
+        $response = [
+            'message'      => __('El webhook respondió correctamente.', 'ai-chatbot-pro'),
+            'http_status'  => $result['http_status'] ?? null,
+            'reply'        => $result['reply'],
+            'payload'      => $result['request_payload'] ?? [],
+        ];
+
+        if (!empty($result['metadata'])) {
+            $response['metadata'] = $result['metadata'];
+        }
+
+        if (!empty($result['raw_body'])) {
+            $response['raw_body'] = $result['raw_body'];
+        }
+
+        wp_send_json_success($response);
     }
 
     public static function handle_get_templates() {
