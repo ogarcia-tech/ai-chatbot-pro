@@ -9,6 +9,21 @@ jQuery(function($) {
     const escapeHtml = (text) => $('<div/>').text(text == null ? '' : String(text)).html();
     const navLockMessage = aicp_admin_params.webhook_lock_message || '';
 
+    const formatJsonBlock = (value) => {
+        if (value == null) {
+            return '';
+        }
+
+        let jsonString = '';
+        try {
+            jsonString = JSON.stringify(value, null, 2);
+        } catch (error) {
+            jsonString = String(value);
+        }
+
+        return `<pre>${escapeHtml(jsonString)}</pre>`;
+    };
+
     function setNavTabsLock(locked) {
         const $tabs = $('.aicp-nav-tab-wrapper [data-lockable-tab="1"]');
         $tabs.each(function() {
@@ -85,6 +100,141 @@ jQuery(function($) {
             
             $('#' + targetId + '_url').val(defaultImage).trigger('change');
             $('#' + targetId + '_preview').attr('src', defaultImage);
+        });
+    }
+
+    function handleWebhookTestButton() {
+        const $button = $('#aicp_test_webhook_button');
+        const nonce = aicp_admin_params.test_webhook_nonce;
+        if (!$button.length || !nonce) {
+            return;
+        }
+
+        const labels = aicp_admin_params.test_webhook_labels || {};
+        const $spinner = $('#aicp_test_webhook_spinner');
+        const $feedback = $('#aicp_test_webhook_feedback');
+        const $urlField = $('#aicp_forward_webhook_url');
+        const $secretField = $('#aicp_forward_webhook_secret');
+        const $timeoutField = $('#aicp_forward_webhook_timeout');
+        let currentRequest = null;
+
+        function resetFeedback() {
+            $feedback.removeClass('notice-success notice-error notice-info').hide().empty();
+        }
+
+        function showFeedback(type, html) {
+            resetFeedback();
+            $feedback.addClass('notice').addClass(`notice-${type}`).html(html).show();
+        }
+
+        $button.on('click', function(e) {
+            e.preventDefault();
+            if ($button.prop('disabled')) {
+                return;
+            }
+
+            const urlValue = ($urlField.val() || '').trim();
+            if (!urlValue) {
+                const message = labels.empty_url || 'Introduce una URL de webhook antes de lanzar la prueba.';
+                showFeedback('error', `<p>${escapeHtml(message)}</p>`);
+                return;
+            }
+
+            if (currentRequest && typeof currentRequest.abort === 'function') {
+                currentRequest.abort();
+            }
+
+            resetFeedback();
+            $button.prop('disabled', true);
+            $spinner.addClass('is-active');
+
+            const requestData = {
+                action: 'aicp_test_webhook',
+                nonce,
+                assistant_id: aicp_admin_params.assistant_id || 0,
+                webhook_url: urlValue,
+                secret: $secretField.val() || '',
+                timeout: $timeoutField.val() || ''
+            };
+
+            currentRequest = $.ajax({
+                url: aicp_admin_params.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: requestData,
+            }).done(function(response) {
+                if (response && response.success) {
+                    const data = response.data || {};
+                    let html = `<p><strong>${escapeHtml(data.message || labels.success_title || '')}</strong></p>`;
+
+                    if (data.http_status) {
+                        html += `<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`;
+                    }
+
+                    if (data.reply) {
+                        html += `<p>${escapeHtml(labels.reply || 'Respuesta del webhook')}:</p><pre>${escapeHtml(data.reply)}</pre>`;
+                    }
+
+                    if (data.metadata) {
+                        const metadataIsObject = typeof data.metadata === 'object' && data.metadata !== null;
+                        if (metadataIsObject) {
+                            const metadataKeys = Object.keys(data.metadata);
+                            if (metadataKeys.length === 0) {
+                                if (labels.metadata_empty) {
+                                    html += `<p>${escapeHtml(labels.metadata_empty)}</p>`;
+                                }
+                            } else {
+                                html += `<p>${escapeHtml(labels.metadata || 'Metadatos recibidos')}:</p>${formatJsonBlock(data.metadata)}`;
+                            }
+                        } else {
+                            html += `<p>${escapeHtml(labels.metadata || 'Metadatos recibidos')}:</p><pre>${escapeHtml(String(data.metadata))}</pre>`;
+                        }
+                    }
+
+                    if (data.payload) {
+                        html += `<p>${escapeHtml(labels.payload || 'Payload enviado')}:</p>${formatJsonBlock(data.payload)}`;
+                    }
+
+                    if (data.raw_body) {
+                        html += `<p>${escapeHtml(labels.raw_body || 'Cuerpo de la respuesta')}:</p><pre>${escapeHtml(data.raw_body)}</pre>`;
+                    }
+
+                    showFeedback('success', html);
+                } else {
+                    const data = response && response.data ? response.data : {};
+                    let html = '';
+                    const errorTitle = labels.error_title || '';
+                    if (errorTitle) {
+                        html += `<p><strong>${escapeHtml(errorTitle)}</strong></p>`;
+                    }
+                    if (data.message) {
+                        html += `<p>${escapeHtml(data.message)}</p>`;
+                    }
+                    if (data.http_status) {
+                        html += `<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`;
+                    }
+                    if (data.payload) {
+                        html += `<p>${escapeHtml(labels.payload || 'Payload enviado')}:</p>${formatJsonBlock(data.payload)}`;
+                    }
+                    if (data.raw_body) {
+                        html += `<p>${escapeHtml(labels.raw_body || 'Cuerpo de la respuesta')}:</p><pre>${escapeHtml(data.raw_body)}</pre>`;
+                    }
+                    if (!html) {
+                        html = `<p>${escapeHtml(labels.request_error || 'No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.')}</p>`;
+                    }
+                    showFeedback('error', html);
+                }
+            }).fail(function(_jqXHR, textStatus) {
+                if (textStatus === 'abort') {
+                    return;
+                }
+                const message = labels.request_error || 'No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.';
+                showFeedback('error', `<p>${escapeHtml(message)}</p>`);
+            }).always(function() {
+                $spinner.removeClass('is-active');
+                $button.prop('disabled', false);
+                currentRequest = null;
+            });
         });
     }
     
@@ -943,6 +1093,7 @@ jQuery(function($) {
         handleDeleteLogFromList();
         initTemplateSelector();
         handleCustomPromptToggle();
+        handleWebhookTestButton();
         handleWebhookToggle();
         handleLeadsLock();
         handleProTabLock();
