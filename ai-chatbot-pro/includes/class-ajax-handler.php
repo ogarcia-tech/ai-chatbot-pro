@@ -121,6 +121,47 @@ class AICP_Ajax_Handler {
         return $sanitized;
     }
 
+    private static function is_host_accessible($host) {
+        if (empty($host)) {
+            return true;
+        }
+
+        if (!defined('WP_HTTP_BLOCK_EXTERNAL') || !WP_HTTP_BLOCK_EXTERNAL) {
+            return true;
+        }
+
+        if (!defined('WP_ACCESSIBLE_HOSTS') || !is_string(WP_ACCESSIBLE_HOSTS) || '' === WP_ACCESSIBLE_HOSTS) {
+            return false;
+        }
+
+        $allowed_hosts = array_filter(array_map('trim', explode(',', WP_ACCESSIBLE_HOSTS)));
+        if (empty($allowed_hosts)) {
+            return false;
+        }
+
+        $host = strtolower($host);
+
+        foreach ($allowed_hosts as $allowed) {
+            $allowed = strtolower($allowed);
+            if ('*' === $allowed) {
+                return true;
+            }
+
+            if ($host === $allowed) {
+                return true;
+            }
+
+            if (strpos($allowed, '*.') === 0) {
+                $suffix = substr($allowed, 1); // remove leading *
+                if ($suffix && substr($host, -strlen($suffix)) === $suffix) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private static function call_message_webhook($assistant_id, $settings, $session_id, $conversation, $page_context, $lead_data, $system_prompt) {
         $webhook_url = isset($settings['forward_webhook_url']) ? esc_url_raw($settings['forward_webhook_url']) : '';
 
@@ -151,6 +192,25 @@ class AICP_Ajax_Handler {
                 'lead_data'    => $lead_data,
             ],
         ];
+
+        $host = wp_parse_url($webhook_url, PHP_URL_HOST);
+        if (!self::is_host_accessible($host)) {
+            return new WP_Error(
+                'webhook_blocked_external',
+                __('Las peticiones HTTP externas están bloqueadas para este host.', 'ai-chatbot-pro'),
+                [
+                    'http_status'     => 0,
+                    'request_payload' => $payload,
+                    'request_headers' => [],
+                    'request_url'     => $webhook_url,
+                    'hint'            => sprintf(
+                        /* translators: %s is the host name. */
+                        __('Añade %1$s a la constante WP_ACCESSIBLE_HOSTS o desactiva WP_HTTP_BLOCK_EXTERNAL para permitir la conexión.', 'ai-chatbot-pro'),
+                        sanitize_text_field($host ?? '')
+                    ),
+                ]
+            );
+        }
 
         $headers = [
             'Content-Type' => 'application/json; charset=utf-8',
@@ -211,6 +271,7 @@ class AICP_Ajax_Handler {
                     'http_status'      => 0,
                     'request_payload'  => $payload,
                     'request_headers'  => $request_args['headers'],
+                    'request_url'      => $webhook_url,
                     'duration'         => $duration,
                 ]
             );
@@ -240,6 +301,7 @@ class AICP_Ajax_Handler {
                     'response_body'   => wp_remote_retrieve_body($response),
                     'request_payload' => $payload,
                     'request_headers' => $request_args['headers'],
+                    'request_url'     => $webhook_url,
                     'response_headers'=> $headers_array,
                     'duration'        => $duration,
                 ]
@@ -258,6 +320,7 @@ class AICP_Ajax_Handler {
                     'response_body'   => $body,
                     'request_payload' => $payload,
                     'request_headers' => $request_args['headers'],
+                    'request_url'     => $webhook_url,
                     'response_headers'=> $headers_array,
                     'duration'        => $duration,
                 ]
@@ -273,6 +336,7 @@ class AICP_Ajax_Handler {
                     'response_body'   => $body,
                     'request_payload' => $payload,
                     'request_headers' => $request_args['headers'],
+                    'request_url'     => $webhook_url,
                     'response_headers'=> $headers_array,
                     'duration'        => $duration,
                 ]
@@ -286,6 +350,7 @@ class AICP_Ajax_Handler {
             'raw_body'    => $body,
             'request_payload' => $payload,
             'request_headers' => $request_args['headers'],
+            'request_url'     => $webhook_url,
             'response_headers'=> $headers_array,
             'duration'        => $duration,
         ];
@@ -380,8 +445,14 @@ class AICP_Ajax_Handler {
                 if (isset($extra['response_headers'])) {
                     $error_data['response_headers'] = $extra['response_headers'];
                 }
+                if (isset($extra['request_url'])) {
+                    $error_data['request_url'] = $extra['request_url'];
+                }
                 if (isset($extra['duration'])) {
                     $error_data['duration'] = floatval($extra['duration']);
+                }
+                if (isset($extra['hint'])) {
+                    $error_data['hint'] = $extra['hint'];
                 }
             }
 
@@ -398,6 +469,7 @@ class AICP_Ajax_Handler {
             'reply'        => $result['reply'],
             'payload'      => $result['request_payload'] ?? [],
             'request_headers' => $result['request_headers'] ?? [],
+            'request_url'  => $result['request_url'] ?? $webhook_url,
         ];
 
         if (!empty($result['metadata'])) {

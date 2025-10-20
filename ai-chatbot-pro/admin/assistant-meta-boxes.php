@@ -155,6 +155,8 @@ function aicp_admin_scripts($hook) {
             'seconds'        => __('segundos', 'ai-chatbot-pro'),
             'error_code'     => __('Código de error', 'ai-chatbot-pro'),
             'sending'        => __('Enviando solicitud al webhook…', 'ai-chatbot-pro'),
+            'request_url'    => __('URL solicitada', 'ai-chatbot-pro'),
+            'hint'           => __('Sugerencia', 'ai-chatbot-pro'),
         ],
     ]);
 }

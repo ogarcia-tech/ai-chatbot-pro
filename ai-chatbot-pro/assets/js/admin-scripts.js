@@ -240,6 +240,10 @@ jQuery(function($) {
                     const data = response.data || {};
                     let html = `<p><strong>${escapeHtml(data.message || labels.success_title || '')}</strong></p>`;
 
+                    if (data.request_url) {
+                        html += `<p>${escapeHtml(labels.request_url || 'URL solicitada')}: <code>${escapeHtml(String(data.request_url))}</code></p>`;
+                    }
+
                     if (data.http_status) {
                         html += `<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`;
                     }
@@ -285,6 +289,10 @@ jQuery(function($) {
                         html += `<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`;
                     }
 
+                    if (data.hint) {
+                        html += `<p>${escapeHtml(labels.hint || 'Sugerencia')}: ${escapeHtml(data.hint)}</p>`;
+                    }
+
                     const successAnnouncement = data.message || labels.success_title || '';
                     showFeedback('success', html, successAnnouncement);
                 } else {
@@ -303,6 +311,9 @@ jQuery(function($) {
                     if (data.http_status) {
                         html += `<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`;
                     }
+                    if (data.request_url) {
+                        html += `<p>${escapeHtml(labels.request_url || 'URL solicitada')}: <code>${escapeHtml(String(data.request_url))}</code></p>`;
+                    }
                     if (data.payload) {
                         html += `<p>${escapeHtml(labels.payload || 'Payload enviado')}:</p>${formatJsonBlock(data.payload)}`;
                     }
@@ -318,6 +329,9 @@ jQuery(function($) {
                     if (typeof data.duration === 'number') {
                         const secondsLabel = labels.seconds || 'segundos';
                         html += `<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`;
+                    }
+                    if (data.hint) {
+                        html += `<p>${escapeHtml(labels.hint || 'Sugerencia')}: ${escapeHtml(data.hint)}</p>`;
                     }
                     if (!html) {
                         html = `<p>${escapeHtml(labels.request_error || 'No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.')}</p>`;
