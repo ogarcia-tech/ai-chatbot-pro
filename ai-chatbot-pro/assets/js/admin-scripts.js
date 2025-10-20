@@ -9,6 +9,57 @@ jQuery(function($) {
     const escapeHtml = (text) => $('<div/>').text(text == null ? '' : String(text)).html();
     const navLockMessage = aicp_admin_params.webhook_lock_message || '';
 
+    const formatJsonBlock = (value) => {
+        if (value == null) {
+            return '';
+        }
+
+        let jsonString = '';
+        try {
+            jsonString = JSON.stringify(value, null, 2);
+        } catch (error) {
+            jsonString = String(value);
+        }
+
+        return `<pre>${escapeHtml(jsonString)}</pre>`;
+    };
+
+    const formatHeadersList = (headers) => {
+        if (!headers) {
+            return '';
+        }
+
+        let entries = [];
+        if (Array.isArray(headers)) {
+            entries = headers;
+        } else if (typeof headers === 'object' && headers !== null) {
+            entries = Object.entries(headers);
+        }
+
+        if (!entries.length) {
+            return '';
+        }
+
+        const rows = entries.map((pair) => {
+            let key;
+            let value;
+            if (Array.isArray(pair) && pair.length === 2) {
+                [key, value] = pair;
+            } else {
+                key = pair.key || '';
+                value = pair.value || '';
+            }
+
+            if (Array.isArray(value)) {
+                value = value.join(', ');
+            }
+
+            return `<tr><th>${escapeHtml(String(key))}</th><td>${escapeHtml(String(value))}</td></tr>`;
+        });
+
+        return `<table class="widefat fixed striped"><tbody>${rows.join('')}</tbody></table>`;
+    };
+
     function setNavTabsLock(locked) {
         const $tabs = $('.aicp-nav-tab-wrapper [data-lockable-tab="1"]');
         $tabs.each(function() {
@@ -85,6 +136,206 @@ jQuery(function($) {
             
             $('#' + targetId + '_url').val(defaultImage).trigger('change');
             $('#' + targetId + '_preview').attr('src', defaultImage);
+        });
+    }
+
+    function handleWebhookTestButton() {
+        const $button = $('#aicp_test_webhook_button');
+        const nonce = aicp_admin_params.test_webhook_nonce;
+        if (!$button.length || !nonce) {
+            return;
+        }
+
+        const labels = aicp_admin_params.test_webhook_labels || {};
+        const $spinner = $('#aicp_test_webhook_spinner');
+        const $feedback = $('#aicp_test_webhook_feedback');
+        const $urlField = $('#aicp_forward_webhook_url');
+        const $secretField = $('#aicp_forward_webhook_secret');
+        const $timeoutField = $('#aicp_forward_webhook_timeout');
+        let currentRequest = null;
+
+        function resetFeedback() {
+            $feedback
+                .removeClass('notice notice-alt inline notice-success notice-error notice-info notice-warning is-dismissible')
+                .attr('role', 'status')
+                .attr('aria-live', 'polite')
+                .hide()
+                .empty();
+        }
+
+        function showFeedback(type, html, announceText) {
+            resetFeedback();
+
+            const classes = ['notice', 'notice-alt', 'inline'];
+            let role = 'status';
+            let ariaLive = 'polite';
+
+            switch (type) {
+                case 'error':
+                    classes.push('notice-error');
+                    role = 'alert';
+                    ariaLive = 'assertive';
+                    break;
+                case 'success':
+                    classes.push('notice-success');
+                    break;
+                default:
+                    classes.push('notice-info');
+                    break;
+            }
+
+            $feedback
+                .addClass(classes.join(' '))
+                .attr('role', role)
+                .attr('aria-live', ariaLive)
+                .html(html)
+                .show();
+
+            const spokenText = typeof announceText === 'string' && announceText.trim() ? announceText : $feedback.text();
+            if (spokenText && window.wp && wp.a11y && typeof wp.a11y.speak === 'function') {
+                wp.a11y.speak(spokenText, ariaLive === 'assertive' ? 'assertive' : 'polite');
+            }
+        }
+
+        $button.on('click', function(e) {
+            e.preventDefault();
+            if ($button.prop('disabled')) {
+                return;
+            }
+
+            const urlValue = ($urlField.val() || '').trim();
+            if (!urlValue) {
+                const message = labels.empty_url || 'Introduce una URL de webhook antes de lanzar la prueba.';
+                showFeedback('error', `<p>${escapeHtml(message)}</p>`, message);
+                return;
+            }
+
+            if (currentRequest && typeof currentRequest.abort === 'function') {
+                currentRequest.abort();
+            }
+
+            resetFeedback();
+            $button.prop('disabled', true);
+            $spinner.addClass('is-active');
+
+            const sendingMessage = labels.sending || 'Enviando solicitud al webhook…';
+            showFeedback('info', `<p>${escapeHtml(sendingMessage)}</p>`, sendingMessage);
+
+            const requestData = {
+                action: 'aicp_test_webhook',
+                nonce,
+                assistant_id: aicp_admin_params.assistant_id || 0,
+                webhook_url: urlValue,
+                secret: $secretField.val() || '',
+                timeout: $timeoutField.val() || ''
+            };
+
+            currentRequest = $.ajax({
+                url: aicp_admin_params.ajax_url,
+                method: 'POST',
+                dataType: 'json',
+                data: requestData,
+            }).done(function(response) {
+                if (response && response.success) {
+                    const data = response.data || {};
+                    let html = `<p><strong>${escapeHtml(data.message || labels.success_title || '')}</strong></p>`;
+
+                    if (data.http_status) {
+                        html += `<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`;
+                    }
+
+                    if (data.reply) {
+                        html += `<p>${escapeHtml(labels.reply || 'Respuesta del webhook')}:</p><pre>${escapeHtml(data.reply)}</pre>`;
+                    }
+
+                    if (data.metadata) {
+                        const metadataIsObject = typeof data.metadata === 'object' && data.metadata !== null;
+                        if (metadataIsObject) {
+                            const metadataKeys = Object.keys(data.metadata);
+                            if (metadataKeys.length === 0) {
+                                if (labels.metadata_empty) {
+                                    html += `<p>${escapeHtml(labels.metadata_empty)}</p>`;
+                                }
+                            } else {
+                                html += `<p>${escapeHtml(labels.metadata || 'Metadatos recibidos')}:</p>${formatJsonBlock(data.metadata)}`;
+                            }
+                        } else {
+                            html += `<p>${escapeHtml(labels.metadata || 'Metadatos recibidos')}:</p><pre>${escapeHtml(String(data.metadata))}</pre>`;
+                        }
+                    }
+
+                    if (data.payload) {
+                        html += `<p>${escapeHtml(labels.payload || 'Payload enviado')}:</p>${formatJsonBlock(data.payload)}`;
+                    }
+
+                    if (data.raw_body) {
+                        html += `<p>${escapeHtml(labels.raw_body || 'Cuerpo de la respuesta')}:</p><pre>${escapeHtml(data.raw_body)}</pre>`;
+                    }
+
+                    if (data.request_headers) {
+                        html += `<p>${escapeHtml(labels.request_headers || 'Cabeceras enviadas')}:</p>${formatHeadersList(data.request_headers)}`;
+                    }
+
+                    if (data.response_headers) {
+                        html += `<p>${escapeHtml(labels.response_headers || 'Cabeceras de respuesta')}:</p>${formatHeadersList(data.response_headers)}`;
+                    }
+
+                    if (typeof data.duration === 'number') {
+                        const secondsLabel = labels.seconds || 'segundos';
+                        html += `<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`;
+                    }
+
+                    const successAnnouncement = data.message || labels.success_title || '';
+                    showFeedback('success', html, successAnnouncement);
+                } else {
+                    const data = response && response.data ? response.data : {};
+                    let html = '';
+                    const errorTitle = labels.error_title || '';
+                    if (errorTitle) {
+                        html += `<p><strong>${escapeHtml(errorTitle)}</strong></p>`;
+                    }
+                    if (data.message) {
+                        html += `<p>${escapeHtml(data.message)}</p>`;
+                    }
+                    if (data.error_code) {
+                        html += `<p>${escapeHtml(labels.error_code || 'Código de error')}: <code>${escapeHtml(String(data.error_code))}</code></p>`;
+                    }
+                    if (data.http_status) {
+                        html += `<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`;
+                    }
+                    if (data.payload) {
+                        html += `<p>${escapeHtml(labels.payload || 'Payload enviado')}:</p>${formatJsonBlock(data.payload)}`;
+                    }
+                    if (data.raw_body) {
+                        html += `<p>${escapeHtml(labels.raw_body || 'Cuerpo de la respuesta')}:</p><pre>${escapeHtml(data.raw_body)}</pre>`;
+                    }
+                    if (data.request_headers) {
+                        html += `<p>${escapeHtml(labels.request_headers || 'Cabeceras enviadas')}:</p>${formatHeadersList(data.request_headers)}`;
+                    }
+                    if (data.response_headers) {
+                        html += `<p>${escapeHtml(labels.response_headers || 'Cabeceras de respuesta')}:</p>${formatHeadersList(data.response_headers)}`;
+                    }
+                    if (typeof data.duration === 'number') {
+                        const secondsLabel = labels.seconds || 'segundos';
+                        html += `<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`;
+                    }
+                    if (!html) {
+                        html = `<p>${escapeHtml(labels.request_error || 'No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.')}</p>`;
+                    }
+                    const errorAnnouncement = data.message || labels.error_title || labels.request_error || '';
+                    showFeedback('error', html, errorAnnouncement);
+                }
+            }).fail(function(_jqXHR, textStatus) {
+                if (textStatus === 'abort') {
+                    return;
+                }
+                const message = labels.request_error || 'No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.';
+                showFeedback('error', `<p>${escapeHtml(message)}</p>`, message);
+            }).always(function() {
+                $spinner.removeClass('is-active');
+                $button.prop('disabled', false);
+                currentRequest = null;
+            });
         });
     }
     
@@ -943,6 +1194,7 @@ jQuery(function($) {
         handleDeleteLogFromList();
         initTemplateSelector();
         handleCustomPromptToggle();
+        handleWebhookTestButton();
         handleWebhookToggle();
         handleLeadsLock();
         handleProTabLock();

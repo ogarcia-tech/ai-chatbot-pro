@@ -111,6 +111,7 @@ function aicp_admin_scripts($hook) {
         'delete_nonce' => wp_create_nonce('aicp_delete_log_nonce'),
         'get_log_nonce' => wp_create_nonce('aicp_get_log_nonce'),
         'capture_lead_nonce' => wp_create_nonce('aicp_capture_lead_nonce'),
+        'test_webhook_nonce' => wp_create_nonce('aicp_test_webhook_nonce'),
         'default_bot_avatar' => $default_bot_avatar,
         'default_user_avatar' => $default_user_avatar,
         'default_open_icon' => $default_open_icon,
@@ -137,6 +138,24 @@ function aicp_admin_scripts($hook) {
         'meta' => $meta,
         'webhook_warning' => __('Si activas el reenvío al webhook externo, el asistente ignorará las instrucciones internas y no podrás editarlas hasta desactivar la integración. ¿Deseas continuar?', 'ai-chatbot-pro'),
         'webhook_lock_message' => __('La integración con webhook está activa. Desactívala para volver a entrenar el asistente o modificar estas opciones PRO.', 'ai-chatbot-pro'),
+        'test_webhook_labels' => [
+            'empty_url'      => __('Introduce una URL de webhook antes de lanzar la prueba.', 'ai-chatbot-pro'),
+            'request_error'  => __('No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.', 'ai-chatbot-pro'),
+            'success_title'  => __('El webhook respondió correctamente.', 'ai-chatbot-pro'),
+            'error_title'    => __('El webhook devolvió un error.', 'ai-chatbot-pro'),
+            'http_status'    => __('Código HTTP', 'ai-chatbot-pro'),
+            'reply'          => __('Respuesta del webhook', 'ai-chatbot-pro'),
+            'metadata'       => __('Metadatos recibidos', 'ai-chatbot-pro'),
+            'metadata_empty' => __('El webhook no devolvió metadatos.', 'ai-chatbot-pro'),
+            'payload'        => __('Payload enviado', 'ai-chatbot-pro'),
+            'raw_body'       => __('Cuerpo de la respuesta', 'ai-chatbot-pro'),
+            'request_headers'=> __('Cabeceras enviadas', 'ai-chatbot-pro'),
+            'response_headers'=> __('Cabeceras de respuesta', 'ai-chatbot-pro'),
+            'duration'       => __('Duración de la petición', 'ai-chatbot-pro'),
+            'seconds'        => __('segundos', 'ai-chatbot-pro'),
+            'error_code'     => __('Código de error', 'ai-chatbot-pro'),
+            'sending'        => __('Enviando solicitud al webhook…', 'ai-chatbot-pro'),
+        ],
     ]);
 }
 add_action('admin_enqueue_scripts', 'aicp_admin_scripts');
@@ -314,6 +333,13 @@ function aicp_render_integrations_tab($assistant_id, $v) {
     echo '<tr><th><label for="aicp_forward_webhook_timeout">' . __('Tiempo de espera', 'ai-chatbot-pro') . '</label></th>';
     echo '<td><input type="number" min="5" max="120" name="aicp_settings[forward_webhook_timeout]" id="aicp_forward_webhook_timeout" value="' . esc_attr($timeout) . '" class="small-text" /> ' . __('segundos', 'ai-chatbot-pro');
     echo '<p class="description">' . __('El chatbot mostrará el error si el webhook no responde a tiempo.', 'ai-chatbot-pro') . '</p></td></tr>';
+
+    echo '<tr><th>' . __('Probar conexión', 'ai-chatbot-pro') . '</th>';
+    echo '<td><button type="button" class="button button-secondary" id="aicp_test_webhook_button">' . esc_html__('Enviar mensaje de prueba', 'ai-chatbot-pro') . '</button>';
+    echo ' <span class="spinner" id="aicp_test_webhook_spinner" style="float:none;margin-top:0;"></span>';
+    echo '<p class="description">' . __('Envía un mensaje de prueba al webhook y revisa la respuesta sin salir del editor.', 'ai-chatbot-pro') . '</p>';
+    echo '<div id="aicp_test_webhook_feedback" class="notice notice-alt inline" style="display:none;" aria-live="polite" role="status"></div>';
+    echo '</td></tr>';
 
     echo '</tbody></table>';
 
