@@ -81,6 +81,12 @@ Only the `reply` field is required. Any extra data under `metadata` is stored in
 
 ## Troubleshooting
 
+### Where to see webhook test results
+
+When you click **Enviar mensaje de prueba** inside the assistant editor (tab **Integraciones → Webhook de Mensajes**), the plugin shows a notice right below the button with every diagnostic field it captured: HTTP status code, raw response body, headers, duration, and the JSON payload that WordPress sent. Use this panel to confirm whether the request actually left your site and what came back from n8n.
+
+### Common issues
+
 * **Timeouts** – Increase the request timeout in the assistant settings if the n8n workflow takes longer than expected.
 * **Invalid JSON** – Ensure that any text you send back is properly JSON encoded. Avoid raw newline characters without escaping.
 * **Authentication failures** – Verify any API keys or basic auth credentials configured on the webhook node, and confirm that the shared secret matches the value set in WordPress.
