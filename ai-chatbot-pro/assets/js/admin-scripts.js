@@ -155,12 +155,46 @@ jQuery(function($) {
         let currentRequest = null;
 
         function resetFeedback() {
-            $feedback.removeClass('notice-success notice-error notice-info').hide().empty();
+            $feedback
+                .removeClass('notice notice-alt inline notice-success notice-error notice-info notice-warning is-dismissible')
+                .attr('role', 'status')
+                .attr('aria-live', 'polite')
+                .hide()
+                .empty();
         }
 
-        function showFeedback(type, html) {
+        function showFeedback(type, html, announceText) {
             resetFeedback();
-            $feedback.addClass('notice').addClass(`notice-${type}`).html(html).show();
+
+            const classes = ['notice', 'notice-alt', 'inline'];
+            let role = 'status';
+            let ariaLive = 'polite';
+
+            switch (type) {
+                case 'error':
+                    classes.push('notice-error');
+                    role = 'alert';
+                    ariaLive = 'assertive';
+                    break;
+                case 'success':
+                    classes.push('notice-success');
+                    break;
+                default:
+                    classes.push('notice-info');
+                    break;
+            }
+
+            $feedback
+                .addClass(classes.join(' '))
+                .attr('role', role)
+                .attr('aria-live', ariaLive)
+                .html(html)
+                .show();
+
+            const spokenText = typeof announceText === 'string' && announceText.trim() ? announceText : $feedback.text();
+            if (spokenText && window.wp && wp.a11y && typeof wp.a11y.speak === 'function') {
+                wp.a11y.speak(spokenText, ariaLive === 'assertive' ? 'assertive' : 'polite');
+            }
         }
 
         $button.on('click', function(e) {
@@ -172,7 +206,7 @@ jQuery(function($) {
             const urlValue = ($urlField.val() || '').trim();
             if (!urlValue) {
                 const message = labels.empty_url || 'Introduce una URL de webhook antes de lanzar la prueba.';
-                showFeedback('error', `<p>${escapeHtml(message)}</p>`);
+                showFeedback('error', `<p>${escapeHtml(message)}</p>`, message);
                 return;
             }
 
@@ -183,6 +217,9 @@ jQuery(function($) {
             resetFeedback();
             $button.prop('disabled', true);
             $spinner.addClass('is-active');
+
+            const sendingMessage = labels.sending || 'Enviando solicitud al webhook…';
+            showFeedback('info', `<p>${escapeHtml(sendingMessage)}</p>`, sendingMessage);
 
             const requestData = {
                 action: 'aicp_test_webhook',
@@ -248,7 +285,8 @@ jQuery(function($) {
                         html += `<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`;
                     }
 
-                    showFeedback('success', html);
+                    const successAnnouncement = data.message || labels.success_title || '';
+                    showFeedback('success', html, successAnnouncement);
                 } else {
                     const data = response && response.data ? response.data : {};
                     let html = '';
@@ -284,14 +322,15 @@ jQuery(function($) {
                     if (!html) {
                         html = `<p>${escapeHtml(labels.request_error || 'No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.')}</p>`;
                     }
-                    showFeedback('error', html);
+                    const errorAnnouncement = data.message || labels.error_title || labels.request_error || '';
+                    showFeedback('error', html, errorAnnouncement);
                 }
             }).fail(function(_jqXHR, textStatus) {
                 if (textStatus === 'abort') {
                     return;
                 }
                 const message = labels.request_error || 'No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.';
-                showFeedback('error', `<p>${escapeHtml(message)}</p>`);
+                showFeedback('error', `<p>${escapeHtml(message)}</p>`, message);
             }).always(function() {
                 $spinner.removeClass('is-active');
                 $button.prop('disabled', false);

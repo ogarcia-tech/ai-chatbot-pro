@@ -154,6 +154,7 @@ function aicp_admin_scripts($hook) {
             'duration'       => __('Duración de la petición', 'ai-chatbot-pro'),
             'seconds'        => __('segundos', 'ai-chatbot-pro'),
             'error_code'     => __('Código de error', 'ai-chatbot-pro'),
+            'sending'        => __('Enviando solicitud al webhook…', 'ai-chatbot-pro'),
         ],
     ]);
 }
@@ -337,7 +338,7 @@ function aicp_render_integrations_tab($assistant_id, $v) {
     echo '<td><button type="button" class="button button-secondary" id="aicp_test_webhook_button">' . esc_html__('Enviar mensaje de prueba', 'ai-chatbot-pro') . '</button>';
     echo ' <span class="spinner" id="aicp_test_webhook_spinner" style="float:none;margin-top:0;"></span>';
     echo '<p class="description">' . __('Envía un mensaje de prueba al webhook y revisa la respuesta sin salir del editor.', 'ai-chatbot-pro') . '</p>';
-    echo '<div id="aicp_test_webhook_feedback" class="notice" style="display:none;" aria-live="polite" role="status"></div>';
+    echo '<div id="aicp_test_webhook_feedback" class="notice notice-alt inline" style="display:none;" aria-live="polite" role="status"></div>';
     echo '</td></tr>';
 
     echo '</tbody></table>';
