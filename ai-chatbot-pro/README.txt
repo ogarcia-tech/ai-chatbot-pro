@@ -1,7 +1,7 @@
 === AI Chatbot Pro ===
 Plugin URI: https://metricaweb.es/
 Description: Crea y gestiona asistentes de chat personalizables con la API de OpenAI mediante shortcodes.
-Version: 6.0
+Version: 6.0.1
 Author: Óscar García / CEO Metricaweb
 Author URI: https://metricaweb.es/
 Co-developed by: Su Asistente de IA de Confianza 😉
@@ -13,7 +13,7 @@ Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
 Network: false
-Stable tag: 6.0
+Stable tag: 6.0.1
 
 == Description ==
 AI Chatbot Pro te permite crear asistentes de chat personalizables usando la API de OpenAI. Utiliza shortcodes para colocar el chatbot en cualquier página o entrada.
@@ -43,5 +43,8 @@ window.aicpLeadMissing = function(info) {
 ```
 
 == Changelog ==
+= 6.0.1 =
+* Actualizamos la versión del plugin para forzar que WordPress recargue los scripts de administración que muestran los resultados del botón "Enviar mensaje de prueba" del webhook.
+
 = 6.0 =
 * Versión inicial del plugin.

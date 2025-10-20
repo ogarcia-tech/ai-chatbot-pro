@@ -75,11 +75,18 @@ Only the `reply` field is required. Any extra data under `metadata` is stored in
 ## Tips
 
 * Use the **Test Webhook** feature in n8n while configuring the assistant to capture the exact payload AI Chatbot Pro sends. Adjust field mappings accordingly.
+* Looking for Make (Integromat) instead? Follow the dedicated [Make webhook guide](./make-integration.md) for equivalent instructions.
 * Protect your webhook URLs with secret tokens or IP whitelists. The **Cabecera secreta opcional** field in the assistant screen adds an `X-AICP-Webhook-Secret` header automatically.
 * Log requests on both sides during development to troubleshoot payload mismatches. The browser console shows the `webhook_metadata` object when it is returned by n8n.
 * If you leave the webhook disabled, the assistant will continue using the configured LLM provider inside WordPress.
 
 ## Troubleshooting
+
+### Where to see webhook test results
+
+When you click **Enviar mensaje de prueba** inside the assistant editor (tab **Integraciones → Webhook de Mensajes**), the plugin shows a notice right below the button with every diagnostic field it captured: HTTP status code, raw response body, headers, duration, and the JSON payload that WordPress sent. Use this panel to confirm whether the request actually left your site and what came back from n8n.
+
+### Common issues
 
 * **Timeouts** – Increase the request timeout in the assistant settings if the n8n workflow takes longer than expected.
 * **Invalid JSON** – Ensure that any text you send back is properly JSON encoded. Avoid raw newline characters without escaping.
