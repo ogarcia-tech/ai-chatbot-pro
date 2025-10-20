@@ -152,31 +152,85 @@ class AICP_Ajax_Handler {
             ],
         ];
 
-        $headers = ['Content-Type' => 'application/json'];
+        $headers = [
+            'Content-Type' => 'application/json; charset=utf-8',
+            'Accept'       => 'application/json, */*;q=0.1',
+            'User-Agent'   => 'AI Chatbot Pro Webhook/1.0; ' . home_url(),
+        ];
         if (!empty($settings['forward_webhook_secret'])) {
             $headers['X-AICP-Webhook-Secret'] = sanitize_text_field($settings['forward_webhook_secret']);
         }
 
         $timeout = isset($settings['forward_webhook_timeout']) ? max(5, intval($settings['forward_webhook_timeout'])) : 15;
 
-        $response = wp_remote_post($webhook_url, [
-            'headers' => $headers,
-            'body'    => wp_json_encode($payload),
-            'timeout' => $timeout,
-        ]);
-
-        if (is_wp_error($response)) {
+        $json_payload = wp_json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (false === $json_payload) {
             return new WP_Error(
-                $response->get_error_code(),
-                $response->get_error_message(),
+                'webhook_json_encoding',
+                __('No se pudo serializar el payload del webhook a JSON.', 'ai-chatbot-pro'),
                 [
-                    'http_status'      => 0,
-                    'request_payload'  => $payload,
+                    'http_status'     => 0,
+                    'request_payload' => $payload,
                 ]
             );
         }
 
+        $request_args = [
+            'method'      => 'POST',
+            'headers'     => $headers,
+            'body'        => $json_payload,
+            'timeout'     => $timeout,
+            'blocking'    => true,
+            'data_format' => 'body',
+        ];
+
+        /**
+         * Permite modificar los argumentos de la petición enviada al webhook externo.
+         *
+         * @since 6.0.1
+         *
+         * @param array $request_args Argumentos que se pasarán a wp_remote_post.
+         * @param array $payload      Datos que se enviarán en el cuerpo.
+         * @param int   $assistant_id ID del asistente actual.
+         */
+        $request_args = apply_filters('aicp_webhook_request_args', $request_args, $payload, $assistant_id);
+
+        $start = microtime(true);
+        $response = wp_remote_post($webhook_url, $request_args);
+        $duration = microtime(true) - $start;
+
+        if (is_wp_error($response)) {
+            $error_data = $response->get_error_data();
+            if (!is_array($error_data)) {
+                $error_data = [];
+            }
+
+            $error_data = array_merge(
+                $error_data,
+                [
+                    'http_status'      => 0,
+                    'request_payload'  => $payload,
+                    'request_headers'  => $request_args['headers'],
+                    'duration'         => $duration,
+                ]
+            );
+
+            $error_code = $response->get_error_code();
+            if (empty($error_code)) {
+                $error_code = 'webhook_http_failure';
+            }
+
+            return new WP_Error(
+                $error_code,
+                $response->get_error_message(),
+                $error_data
+            );
+        }
+
         $status = wp_remote_retrieve_response_code($response);
+        $raw_headers = wp_remote_retrieve_headers($response);
+        $headers_array = is_object($raw_headers) ? $raw_headers->getAll() : (array) $raw_headers;
+
         if ($status >= 400) {
             return new WP_Error(
                 'webhook_http_error',
@@ -185,6 +239,9 @@ class AICP_Ajax_Handler {
                     'http_status'     => $status,
                     'response_body'   => wp_remote_retrieve_body($response),
                     'request_payload' => $payload,
+                    'request_headers' => $request_args['headers'],
+                    'response_headers'=> $headers_array,
+                    'duration'        => $duration,
                 ]
             );
         }
@@ -200,6 +257,9 @@ class AICP_Ajax_Handler {
                     'http_status'     => $status,
                     'response_body'   => $body,
                     'request_payload' => $payload,
+                    'request_headers' => $request_args['headers'],
+                    'response_headers'=> $headers_array,
+                    'duration'        => $duration,
                 ]
             );
         }
@@ -212,6 +272,9 @@ class AICP_Ajax_Handler {
                     'http_status'     => $status,
                     'response_body'   => $body,
                     'request_payload' => $payload,
+                    'request_headers' => $request_args['headers'],
+                    'response_headers'=> $headers_array,
+                    'duration'        => $duration,
                 ]
             );
         }
@@ -222,6 +285,9 @@ class AICP_Ajax_Handler {
             'http_status' => $status,
             'raw_body'    => $body,
             'request_payload' => $payload,
+            'request_headers' => $request_args['headers'],
+            'response_headers'=> $headers_array,
+            'duration'        => $duration,
         ];
 
         if (isset($data['metadata']) && is_array($data['metadata'])) {
@@ -294,7 +360,9 @@ class AICP_Ajax_Handler {
         $result = self::call_message_webhook($assistant_id, $test_settings, $session_id, $conversation, $page_context, [], $system_prompt);
 
         if (is_wp_error($result)) {
-            $error_data = ['message' => $result->get_error_message()];
+            $error_data = [
+                'message' => $result->get_error_message(),
+            ];
             $extra = $result->get_error_data();
             if (is_array($extra)) {
                 if (isset($extra['http_status'])) {
@@ -306,6 +374,20 @@ class AICP_Ajax_Handler {
                 if (isset($extra['request_payload'])) {
                     $error_data['payload'] = $extra['request_payload'];
                 }
+                if (isset($extra['request_headers'])) {
+                    $error_data['request_headers'] = $extra['request_headers'];
+                }
+                if (isset($extra['response_headers'])) {
+                    $error_data['response_headers'] = $extra['response_headers'];
+                }
+                if (isset($extra['duration'])) {
+                    $error_data['duration'] = floatval($extra['duration']);
+                }
+            }
+
+            $error_code = $result->get_error_code();
+            if (!empty($error_code)) {
+                $error_data['error_code'] = $error_code;
             }
             wp_send_json_error($error_data);
         }
@@ -315,6 +397,7 @@ class AICP_Ajax_Handler {
             'http_status'  => $result['http_status'] ?? null,
             'reply'        => $result['reply'],
             'payload'      => $result['request_payload'] ?? [],
+            'request_headers' => $result['request_headers'] ?? [],
         ];
 
         if (!empty($result['metadata'])) {
@@ -323,6 +406,14 @@ class AICP_Ajax_Handler {
 
         if (!empty($result['raw_body'])) {
             $response['raw_body'] = $result['raw_body'];
+        }
+
+        if (!empty($result['response_headers'])) {
+            $response['response_headers'] = $result['response_headers'];
+        }
+
+        if (isset($result['duration'])) {
+            $response['duration'] = floatval($result['duration']);
         }
 
         wp_send_json_success($response);

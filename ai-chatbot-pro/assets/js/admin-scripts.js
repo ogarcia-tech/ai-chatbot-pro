@@ -24,6 +24,42 @@ jQuery(function($) {
         return `<pre>${escapeHtml(jsonString)}</pre>`;
     };
 
+    const formatHeadersList = (headers) => {
+        if (!headers) {
+            return '';
+        }
+
+        let entries = [];
+        if (Array.isArray(headers)) {
+            entries = headers;
+        } else if (typeof headers === 'object' && headers !== null) {
+            entries = Object.entries(headers);
+        }
+
+        if (!entries.length) {
+            return '';
+        }
+
+        const rows = entries.map((pair) => {
+            let key;
+            let value;
+            if (Array.isArray(pair) && pair.length === 2) {
+                [key, value] = pair;
+            } else {
+                key = pair.key || '';
+                value = pair.value || '';
+            }
+
+            if (Array.isArray(value)) {
+                value = value.join(', ');
+            }
+
+            return `<tr><th>${escapeHtml(String(key))}</th><td>${escapeHtml(String(value))}</td></tr>`;
+        });
+
+        return `<table class="widefat fixed striped"><tbody>${rows.join('')}</tbody></table>`;
+    };
+
     function setNavTabsLock(locked) {
         const $tabs = $('.aicp-nav-tab-wrapper [data-lockable-tab="1"]');
         $tabs.each(function() {
@@ -199,6 +235,19 @@ jQuery(function($) {
                         html += `<p>${escapeHtml(labels.raw_body || 'Cuerpo de la respuesta')}:</p><pre>${escapeHtml(data.raw_body)}</pre>`;
                     }
 
+                    if (data.request_headers) {
+                        html += `<p>${escapeHtml(labels.request_headers || 'Cabeceras enviadas')}:</p>${formatHeadersList(data.request_headers)}`;
+                    }
+
+                    if (data.response_headers) {
+                        html += `<p>${escapeHtml(labels.response_headers || 'Cabeceras de respuesta')}:</p>${formatHeadersList(data.response_headers)}`;
+                    }
+
+                    if (typeof data.duration === 'number') {
+                        const secondsLabel = labels.seconds || 'segundos';
+                        html += `<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`;
+                    }
+
                     showFeedback('success', html);
                 } else {
                     const data = response && response.data ? response.data : {};
@@ -210,6 +259,9 @@ jQuery(function($) {
                     if (data.message) {
                         html += `<p>${escapeHtml(data.message)}</p>`;
                     }
+                    if (data.error_code) {
+                        html += `<p>${escapeHtml(labels.error_code || 'Código de error')}: <code>${escapeHtml(String(data.error_code))}</code></p>`;
+                    }
                     if (data.http_status) {
                         html += `<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`;
                     }
@@ -218,6 +270,16 @@ jQuery(function($) {
                     }
                     if (data.raw_body) {
                         html += `<p>${escapeHtml(labels.raw_body || 'Cuerpo de la respuesta')}:</p><pre>${escapeHtml(data.raw_body)}</pre>`;
+                    }
+                    if (data.request_headers) {
+                        html += `<p>${escapeHtml(labels.request_headers || 'Cabeceras enviadas')}:</p>${formatHeadersList(data.request_headers)}`;
+                    }
+                    if (data.response_headers) {
+                        html += `<p>${escapeHtml(labels.response_headers || 'Cabeceras de respuesta')}:</p>${formatHeadersList(data.response_headers)}`;
+                    }
+                    if (typeof data.duration === 'number') {
+                        const secondsLabel = labels.seconds || 'segundos';
+                        html += `<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`;
                     }
                     if (!html) {
                         html = `<p>${escapeHtml(labels.request_error || 'No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.')}</p>`;

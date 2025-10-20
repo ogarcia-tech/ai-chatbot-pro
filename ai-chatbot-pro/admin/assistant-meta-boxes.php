@@ -149,6 +149,11 @@ function aicp_admin_scripts($hook) {
             'metadata_empty' => __('El webhook no devolvió metadatos.', 'ai-chatbot-pro'),
             'payload'        => __('Payload enviado', 'ai-chatbot-pro'),
             'raw_body'       => __('Cuerpo de la respuesta', 'ai-chatbot-pro'),
+            'request_headers'=> __('Cabeceras enviadas', 'ai-chatbot-pro'),
+            'response_headers'=> __('Cabeceras de respuesta', 'ai-chatbot-pro'),
+            'duration'       => __('Duración de la petición', 'ai-chatbot-pro'),
+            'seconds'        => __('segundos', 'ai-chatbot-pro'),
+            'error_code'     => __('Código de error', 'ai-chatbot-pro'),
         ],
     ]);
 }
