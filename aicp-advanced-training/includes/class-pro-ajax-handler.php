@@ -99,7 +99,73 @@ class AICP_Pro_Ajax_Handler {
         if (!is_array($assistant_settings)) {
             $assistant_settings = [];
         }
-
+        // --- INICIO DE LA MODIFICACIÓN: Prioridad Webhook ---
+        $use_webhook = !empty($assistant_settings['forward_to_webhook']) && !empty($assistant_settings['forward_webhook_url']);
+        
+        if ($use_webhook) {
+            // Asegúrate de que la clase del manejador principal esté cargada
+            if (!class_exists('AICP_Ajax_Handler')) {
+                 // Añade la ruta correcta si es necesario, aunque debería estar cargada
+                 require_once AICP_PLUGIN_DIR . 'includes/class-ajax-handler.php';
+            }
+        
+            // Prepara los datos necesarios para llamar a call_message_webhook
+            // (Reutiliza la lógica que ya tienes para $system_prompt y $conversation_payload)
+             $system_prompt = AICP_Prompt_Builder::build($assistant_settings, $page_context);
+             $short_term_history = array_slice($history, -10); // O usa $history si prefieres el historial completo
+             $conversation_for_webhook = [];
+              if ('' !== trim($system_prompt)) {
+                  $conversation_for_webhook[] = ['role' => 'system', 'content' => $system_prompt];
+             }
+             foreach ($short_term_history as $item) {
+                 if (isset($item['role'], $item['content'])) {
+                     $conversation_for_webhook[] = ['role' => sanitize_key($item['role']), 'content' => sanitize_textarea_field($item['content'])];
+                 }
+             }
+             // Necesitas obtener $lead_payload aquí si quieres enviarlo al webhook
+             $lead_payload = []; // O usa AICP_Lead_Manager::detect_contact_data si es relevante
+        
+            // Llama a la función del manejador principal para enviar al webhook
+            $webhook_result = AICP_Ajax_Handler::call_message_webhook(
+                $assistant_id,
+                $assistant_settings,
+                $session_id, // Asegúrate de que $session_id está definido antes (debería estarlo)
+                $conversation_for_webhook,
+                $page_context,
+                $lead_payload,
+                $system_prompt
+            );
+        
+            if (is_wp_error($webhook_result)) {
+                wp_send_json_error(['message' => $webhook_result->get_error_message()]);
+            } else {
+                 $reply = $webhook_result['reply'];
+                 $metadata = $webhook_result['metadata'] ?? [];
+        
+                 // Guarda la conversación (reutiliza tu lógica de guardado o la del principal)
+                 $full_history = $history; // Usa el historial completo original recibido
+                 $full_history[] = ['role' => 'assistant', 'content' => $reply];
+                 $lead_info_for_saving = AICP_Lead_Manager::detect_contact_data($full_history, $assistant_id, $assistant_settings); // Recalcula si aplica
+                 $new_log_id = self::save_conversation($log_id, $assistant_id, $session_id, $full_history, ($lead_info_for_saving['is_complete'] ? $lead_info_for_saving['data'] : []));
+        
+        
+                 // Envía la respuesta al frontend
+                 $response_payload = [
+                     'reply'          => $reply,
+                     'log_id'         => $new_log_id,
+                     'lead_status'    => 'none', // El webhook externo gestiona los leads
+                     'missing_fields' => [],
+                     'session_id'     => $session_id,
+                 ];
+                 if (!empty($metadata)) {
+                     $response_payload['webhook_metadata'] = $metadata;
+                 }
+                wp_send_json_success($response_payload);
+            }
+             // Importante: Salir aquí para no ejecutar el resto de la función del addon
+             exit;
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
         $system_prompt = AICP_Prompt_Builder::build($assistant_settings, $page_context);
 
         $short_term_history = array_slice($history, -10);
