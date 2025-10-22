@@ -82,7 +82,7 @@ class AICP_Ajax_Handler {
         return $session_id;
     }
 
-    private static function get_client_ip() {
+    public static function get_client_ip() {
         $keys = [
             'HTTP_CLIENT_IP',
             'HTTP_X_FORWARDED_FOR',
