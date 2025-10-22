@@ -611,10 +611,33 @@ function renderQuickReplies() {
                 // --- INICIO: Logging ---
                 console.log('[AICP Debug] AJAX Success Response:', response);
                 // --- FIN: Logging ---
-                if (response && response.success && response.data) { // Comprobar estructura
-                    const botReply = response.data.reply;
-                    logId = response.data.log_id;
-                    sessionId = response.data.session_id || sessionId; // Actualizar si viene
+                let parsedResponse = response;
+                if (typeof parsedResponse === 'string') {
+                    try {
+                        parsedResponse = JSON.parse(parsedResponse);
+                    } catch (parseError) {
+                        console.error('[AICP Debug] Failed to parse string response:', parseError, parsedResponse);
+                    }
+                }
+
+                if (parsedResponse && typeof parsedResponse === 'object' && parsedResponse.data === undefined && parsedResponse.reply) {
+                    parsedResponse = {
+                        success: parsedResponse.success !== undefined ? !!parsedResponse.success : true,
+                        data: {
+                            reply: parsedResponse.reply,
+                            log_id: parsedResponse.log_id || null,
+                            session_id: parsedResponse.session_id || null,
+                            lead_status: parsedResponse.lead_status || 'none',
+                            missing_fields: parsedResponse.missing_fields || [],
+                            webhook_metadata: parsedResponse.webhook_metadata || undefined
+                        }
+                    };
+                }
+
+                if (parsedResponse && parsedResponse.success && parsedResponse.data) { // Comprobar estructura
+                    const botReply = parsedResponse.data.reply;
+                    logId = parsedResponse.data.log_id;
+                    sessionId = parsedResponse.data.session_id || sessionId; // Actualizar si viene
                     // --- INICIO: Logging ---
                     console.log(`[AICP Debug] Received Reply: "${botReply}", Log ID: ${logId}, Session ID: ${sessionId}`);
                     // --- FIN: Logging ---
@@ -634,8 +657,8 @@ function renderQuickReplies() {
                     }
 
 
-                    const leadStatus = response.data.lead_status;
-                    const missing = response.data.missing_fields || [];
+                    const leadStatus = parsedResponse.data.lead_status;
+                    const missing = parsedResponse.data.missing_fields || [];
                     // --- INICIO: Logging ---
                     console.log(`[AICP Debug] Lead Status: ${leadStatus}, Missing Fields:`, missing);
                     // --- FIN: Logging ---
@@ -649,18 +672,20 @@ function renderQuickReplies() {
                     }
 
                     // Procesar metadatos del webhook si existen
-                    if (response.data.webhook_metadata) {
+                    if (parsedResponse.data.webhook_metadata) {
                          // --- INICIO: Logging ---
-                         console.log('[AICP Debug] Applying webhook metadata:', response.data.webhook_metadata);
+                         console.log('[AICP Debug] Applying webhook metadata:', parsedResponse.data.webhook_metadata);
                          // --- FIN: Logging ---
-                         applyWebhookMetadata(response.data.webhook_metadata, { logId, sessionId });
+                         applyWebhookMetadata(parsedResponse.data.webhook_metadata, { logId, sessionId });
                     }
                 } else {
                     // --- INICIO: Logging ---
-                    console.error('[AICP Debug] AJAX response indicates failure or invalid structure:', response);
+                    console.error('[AICP Debug] AJAX response indicates failure or invalid structure:', parsedResponse);
                     // --- FIN: Logging ---
                     // Mostrar error específico si viene, o el genérico
-                    const errorMessage = response && response.data && response.data.message ? response.data.message : 'No se pudo procesar la solicitud en este momento.';
+                    const errorMessage = (parsedResponse && parsedResponse.data && parsedResponse.data.message)
+                        ? parsedResponse.data.message
+                        : (parsedResponse && parsedResponse.message ? parsedResponse.message : 'No se pudo procesar la solicitud en este momento.');
                     addMessageToChat('bot', `Error: ${errorMessage}`);
                 }
             },
