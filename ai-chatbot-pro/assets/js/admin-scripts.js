@@ -9,6 +9,10 @@ jQuery(function($) {
     const escapeHtml = (text) => $('<div/>').text(text == null ? '' : String(text)).html();
     const navLockMessage = aicp_admin_params.webhook_lock_message || '';
 
+    const formatPreformatted = (value) => {
+        return `<pre class="aicp-webhook-code-block">${escapeHtml(value == null ? '' : String(value))}</pre>`;
+    };
+
     const formatJsonBlock = (value) => {
         if (value == null) {
             return '';
@@ -21,7 +25,7 @@ jQuery(function($) {
             jsonString = String(value);
         }
 
-        return `<pre>${escapeHtml(jsonString)}</pre>`;
+        return formatPreformatted(jsonString);
     };
 
     const formatHeadersList = (headers) => {
@@ -238,18 +242,24 @@ jQuery(function($) {
             }).done(function(response) {
                 if (response && response.success) {
                     const data = response.data || {};
-                    let html = `<p><strong>${escapeHtml(data.message || labels.success_title || '')}</strong></p>`;
+                    const summaryParts = [];
+                    const detailParts = [];
+
+                    const successHeading = data.message || labels.success_title || '';
+                    if (successHeading) {
+                        summaryParts.push(`<p><strong>${escapeHtml(successHeading)}</strong></p>`);
+                    }
 
                     if (data.request_url) {
-                        html += `<p>${escapeHtml(labels.request_url || 'URL solicitada')}: <code>${escapeHtml(String(data.request_url))}</code></p>`;
+                        detailParts.push(`<p>${escapeHtml(labels.request_url || 'URL solicitada')}: <code>${escapeHtml(String(data.request_url))}</code></p>`);
                     }
 
                     if (data.http_status) {
-                        html += `<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`;
+                        detailParts.push(`<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`);
                     }
 
                     if (data.reply) {
-                        html += `<p>${escapeHtml(labels.reply || 'Respuesta del webhook')}:</p><pre>${escapeHtml(data.reply)}</pre>`;
+                        detailParts.push(`<p>${escapeHtml(labels.reply || 'Respuesta del webhook')}:</p>${formatPreformatted(data.reply)}`);
                     }
 
                     if (data.metadata) {
@@ -258,84 +268,124 @@ jQuery(function($) {
                             const metadataKeys = Object.keys(data.metadata);
                             if (metadataKeys.length === 0) {
                                 if (labels.metadata_empty) {
-                                    html += `<p>${escapeHtml(labels.metadata_empty)}</p>`;
+                                    detailParts.push(`<p>${escapeHtml(labels.metadata_empty)}</p>`);
                                 }
                             } else {
-                                html += `<p>${escapeHtml(labels.metadata || 'Metadatos recibidos')}:</p>${formatJsonBlock(data.metadata)}`;
+                                detailParts.push(`<p>${escapeHtml(labels.metadata || 'Metadatos recibidos')}:</p>${formatJsonBlock(data.metadata)}`);
                             }
                         } else {
-                            html += `<p>${escapeHtml(labels.metadata || 'Metadatos recibidos')}:</p><pre>${escapeHtml(String(data.metadata))}</pre>`;
+                            detailParts.push(`<p>${escapeHtml(labels.metadata || 'Metadatos recibidos')}:</p>${formatPreformatted(data.metadata)}`);
                         }
                     }
 
                     if (data.payload) {
-                        html += `<p>${escapeHtml(labels.payload || 'Payload enviado')}:</p>${formatJsonBlock(data.payload)}`;
+                        detailParts.push(`<p>${escapeHtml(labels.payload || 'Payload enviado')}:</p>${formatJsonBlock(data.payload)}`);
                     }
 
                     if (data.raw_body) {
-                        html += `<p>${escapeHtml(labels.raw_body || 'Cuerpo de la respuesta')}:</p><pre>${escapeHtml(data.raw_body)}</pre>`;
+                        detailParts.push(`<p>${escapeHtml(labels.raw_body || 'Cuerpo de la respuesta')}:</p>${formatPreformatted(data.raw_body)}`);
                     }
 
                     if (data.request_headers) {
-                        html += `<p>${escapeHtml(labels.request_headers || 'Cabeceras enviadas')}:</p>${formatHeadersList(data.request_headers)}`;
+                        detailParts.push(`<p>${escapeHtml(labels.request_headers || 'Cabeceras enviadas')}:</p>${formatHeadersList(data.request_headers)}`);
                     }
 
                     if (data.response_headers) {
-                        html += `<p>${escapeHtml(labels.response_headers || 'Cabeceras de respuesta')}:</p>${formatHeadersList(data.response_headers)}`;
+                        detailParts.push(`<p>${escapeHtml(labels.response_headers || 'Cabeceras de respuesta')}:</p>${formatHeadersList(data.response_headers)}`);
                     }
 
                     if (typeof data.duration === 'number') {
                         const secondsLabel = labels.seconds || 'segundos';
-                        html += `<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`;
+                        detailParts.push(`<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`);
                     }
 
                     if (data.hint) {
-                        html += `<p>${escapeHtml(labels.hint || 'Sugerencia')}: ${escapeHtml(data.hint)}</p>`;
+                        detailParts.push(`<p>${escapeHtml(labels.hint || 'Sugerencia')}: ${escapeHtml(data.hint)}</p>`);
                     }
 
-                    const successAnnouncement = data.message || labels.success_title || '';
+                    let html = '';
+                    if (summaryParts.length) {
+                        html += `<div class="aicp-webhook-feedback-summary">${summaryParts.join('')}</div>`;
+                    }
+
+                    if (detailParts.length) {
+                        html += `<div class="aicp-webhook-feedback-details">${detailParts.join('')}</div>`;
+                    }
+
+                    let successAnnouncement = data.message || labels.success_title || '';
+                    if (!html) {
+                        const fallbackSummary = labels.success_title || 'El webhook respondió correctamente.';
+                        html = `<div class="aicp-webhook-feedback-summary"><p>${escapeHtml(fallbackSummary)}</p></div>`;
+                        if (!successAnnouncement) {
+                            successAnnouncement = fallbackSummary;
+                        }
+                    }
+
                     showFeedback('success', html, successAnnouncement);
                 } else {
                     const data = response && response.data ? response.data : {};
-                    let html = '';
+                    const summaryParts = [];
+                    const detailParts = [];
+
                     const errorTitle = labels.error_title || '';
                     if (errorTitle) {
-                        html += `<p><strong>${escapeHtml(errorTitle)}</strong></p>`;
+                        summaryParts.push(`<p><strong>${escapeHtml(errorTitle)}</strong></p>`);
                     }
+
                     if (data.message) {
-                        html += `<p>${escapeHtml(data.message)}</p>`;
+                        summaryParts.push(`<p>${escapeHtml(data.message)}</p>`);
                     }
+
                     if (data.error_code) {
-                        html += `<p>${escapeHtml(labels.error_code || 'Código de error')}: <code>${escapeHtml(String(data.error_code))}</code></p>`;
+                        detailParts.push(`<p>${escapeHtml(labels.error_code || 'Código de error')}: <code>${escapeHtml(String(data.error_code))}</code></p>`);
                     }
+
                     if (data.http_status) {
-                        html += `<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`;
+                        detailParts.push(`<p>${escapeHtml(labels.http_status || 'Código HTTP')}: <code>${escapeHtml(String(data.http_status))}</code></p>`);
                     }
+
                     if (data.request_url) {
-                        html += `<p>${escapeHtml(labels.request_url || 'URL solicitada')}: <code>${escapeHtml(String(data.request_url))}</code></p>`;
+                        detailParts.push(`<p>${escapeHtml(labels.request_url || 'URL solicitada')}: <code>${escapeHtml(String(data.request_url))}</code></p>`);
                     }
+
                     if (data.payload) {
-                        html += `<p>${escapeHtml(labels.payload || 'Payload enviado')}:</p>${formatJsonBlock(data.payload)}`;
+                        detailParts.push(`<p>${escapeHtml(labels.payload || 'Payload enviado')}:</p>${formatJsonBlock(data.payload)}`);
                     }
+
                     if (data.raw_body) {
-                        html += `<p>${escapeHtml(labels.raw_body || 'Cuerpo de la respuesta')}:</p><pre>${escapeHtml(data.raw_body)}</pre>`;
+                        detailParts.push(`<p>${escapeHtml(labels.raw_body || 'Cuerpo de la respuesta')}:</p>${formatPreformatted(data.raw_body)}`);
                     }
+
                     if (data.request_headers) {
-                        html += `<p>${escapeHtml(labels.request_headers || 'Cabeceras enviadas')}:</p>${formatHeadersList(data.request_headers)}`;
+                        detailParts.push(`<p>${escapeHtml(labels.request_headers || 'Cabeceras enviadas')}:</p>${formatHeadersList(data.request_headers)}`);
                     }
+
                     if (data.response_headers) {
-                        html += `<p>${escapeHtml(labels.response_headers || 'Cabeceras de respuesta')}:</p>${formatHeadersList(data.response_headers)}`;
+                        detailParts.push(`<p>${escapeHtml(labels.response_headers || 'Cabeceras de respuesta')}:</p>${formatHeadersList(data.response_headers)}`);
                     }
+
                     if (typeof data.duration === 'number') {
                         const secondsLabel = labels.seconds || 'segundos';
-                        html += `<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`;
+                        detailParts.push(`<p>${escapeHtml(labels.duration || 'Duración de la petición')}: <code>${escapeHtml(data.duration.toFixed(3))}</code> ${escapeHtml(secondsLabel)}</p>`);
                     }
+
                     if (data.hint) {
-                        html += `<p>${escapeHtml(labels.hint || 'Sugerencia')}: ${escapeHtml(data.hint)}</p>`;
+                        detailParts.push(`<p>${escapeHtml(labels.hint || 'Sugerencia')}: ${escapeHtml(data.hint)}</p>`);
                     }
+
+                    let html = '';
+                    if (summaryParts.length) {
+                        html += `<div class="aicp-webhook-feedback-summary">${summaryParts.join('')}</div>`;
+                    }
+
+                    if (detailParts.length) {
+                        html += `<div class="aicp-webhook-feedback-details">${detailParts.join('')}</div>`;
+                    }
+
                     if (!html) {
-                        html = `<p>${escapeHtml(labels.request_error || 'No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.')}</p>`;
+                        html = `<div class="aicp-webhook-feedback-summary"><p>${escapeHtml(labels.request_error || 'No se pudo completar la solicitud. Revisa la consola o inténtalo de nuevo.')}</p></div>`;
                     }
+
                     const errorAnnouncement = data.message || labels.error_title || labels.request_error || '';
                     showFeedback('error', html, errorAnnouncement);
                 }

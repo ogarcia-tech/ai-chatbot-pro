@@ -196,3 +196,45 @@
     left: 20px;
     transform-origin: bottom left;
 }
+
+/* Webhook test feedback layout */
+#aicp_test_webhook_feedback .aicp-webhook-feedback-summary p {
+    margin: 0 0 0.5em;
+}
+
+#aicp_test_webhook_feedback .aicp-webhook-feedback-summary p:last-child {
+    margin-bottom: 0;
+}
+
+#aicp_test_webhook_feedback .aicp-webhook-feedback-details {
+    max-height: 320px;
+    overflow: auto;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #dcdcde;
+    padding-right: 12px;
+}
+
+#aicp_test_webhook_feedback .aicp-webhook-feedback-details p {
+    margin-top: 0;
+}
+
+#aicp_test_webhook_feedback .aicp-webhook-code-block {
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    padding: 10px;
+    margin: 8px 0 16px;
+    max-width: 100%;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+#aicp_test_webhook_feedback .aicp-webhook-feedback-details table.widefat td,
+#aicp_test_webhook_feedback .aicp-webhook-feedback-details table.widefat th {
+    word-break: break-word;
+}
