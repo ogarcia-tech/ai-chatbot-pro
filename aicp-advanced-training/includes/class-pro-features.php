@@ -6,7 +6,9 @@ class AICP_Pro_Features {
     public static function init() {
         add_action('aicp_pro_tab_content', [__CLASS__, 'render_pro_training_tab']);
         add_action('aicp_after_settings_fields', [__CLASS__, 'add_pro_settings_fields']);
-        add_action('save_post_aicp_assistant', [__CLASS__, 'save_pro_assistant_settings'], 20, 1);
+
+        // Usar filtro del plugin base para integrar los ajustes PRO sin sobrescribir los existentes
+        add_filter('aicp_save_assistant_settings', [__CLASS__, 'filter_pro_settings'], 10, 2);
     }
 
     public static function render_pro_training_tab() {
@@ -166,35 +168,49 @@ class AICP_Pro_Features {
         <?php
     }
 
-    public static function save_pro_assistant_settings($post_id) {
-        if (!isset($_POST['aicp_meta_box_nonce']) || !wp_verify_nonce($_POST['aicp_meta_box_nonce'], 'aicp_save_meta_box_data') || !current_user_can('edit_post', $post_id)) return;
-        $current_settings = get_post_meta($post_id, '_aicp_assistant_settings', true);
-        if (!is_array($current_settings)) $current_settings = [];
-        $new_settings = $_POST['aicp_settings'] ?? [];
-        
-        $current_settings['training_post_ids'] = isset($new_settings['training_post_ids']) && is_array($new_settings['training_post_ids']) ? array_map('intval', $new_settings['training_post_ids']) : [];
-        $current_settings['training_post_types'] = isset($new_settings['training_post_types']) && is_array($new_settings['training_post_types']) ? array_map('sanitize_text_field', $new_settings['training_post_types']) : [];
+    /**
+     * Ajusta los valores PRO dentro del proceso de guardado del plugin base.
+     *
+     * @param array $current_settings Ajustes ya procesados por el plugin principal.
+     * @param array $input_post       Valores sin sanear provenientes del formulario.
+     *
+     * @return array
+     */
+    public static function filter_pro_settings($current_settings, $input_post) {
+        if (!current_user_can('edit_posts')) {
+            return $current_settings;
+        }
 
-        if (!empty($new_settings['training_file_ids'])) {
-            $file_ids = array_filter(array_map('intval', explode(',', $new_settings['training_file_ids'])));
-            $file_ids = array_filter($file_ids, function($id) {
-                return get_post_type($id) === 'attachment';
-            });
+        if (!is_array($current_settings)) {
+            $current_settings = [];
+        }
+
+        $post_settings = is_array($input_post) ? $input_post : [];
+
+        $current_settings['training_post_ids'] = isset($post_settings['training_post_ids']) && is_array($post_settings['training_post_ids'])
+            ? array_map('intval', $post_settings['training_post_ids'])
+            : [];
+
+        $current_settings['training_post_types'] = isset($post_settings['training_post_types']) && is_array($post_settings['training_post_types'])
+            ? array_map('sanitize_text_field', $post_settings['training_post_types'])
+            : [];
+
+        if (!empty($post_settings['training_file_ids'])) {
+            $file_ids = array_filter(array_map('intval', explode(',', $post_settings['training_file_ids'])));
             $current_settings['training_file_ids'] = array_values($file_ids);
         } else {
             $current_settings['training_file_ids'] = [];
         }
-        
-        // Guardar el nuevo campo de reglas de comportamiento
-        if (isset($new_settings['behavior_rules'])) {
-            $current_settings['behavior_rules'] = sanitize_textarea_field($new_settings['behavior_rules']);
+
+        if (isset($post_settings['behavior_rules'])) {
+            $current_settings['behavior_rules'] = sanitize_textarea_field($post_settings['behavior_rules']);
         }
 
-        $current_settings['auto_open_enabled'] = !empty($new_settings['auto_open_enabled']) ? 1 : 0;
-        $current_settings['auto_open_delay'] = isset($new_settings['auto_open_delay']) ? max(0, intval($new_settings['auto_open_delay'])) : 0;
-        $current_settings['auto_open_duration'] = isset($new_settings['auto_open_duration']) ? max(0, intval($new_settings['auto_open_duration'])) : 0;
-        $current_settings['auto_open_message'] = isset($new_settings['auto_open_message']) ? sanitize_textarea_field($new_settings['auto_open_message']) : '';
+        $current_settings['auto_open_enabled'] = !empty($post_settings['auto_open_enabled']) ? 1 : 0;
+        $current_settings['auto_open_delay'] = isset($post_settings['auto_open_delay']) ? max(0, intval($post_settings['auto_open_delay'])) : 0;
+        $current_settings['auto_open_duration'] = isset($post_settings['auto_open_duration']) ? max(0, intval($post_settings['auto_open_duration'])) : 0;
+        $current_settings['auto_open_message'] = isset($post_settings['auto_open_message']) ? sanitize_textarea_field($post_settings['auto_open_message']) : '';
 
-        update_post_meta($post_id, '_aicp_assistant_settings', $current_settings);
+        return $current_settings;
     }
 }

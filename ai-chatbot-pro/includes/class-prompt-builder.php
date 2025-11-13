@@ -33,7 +33,7 @@ class AICP_Prompt_Builder {
 
         $prompt = '';
 
-        if (isset($settings['custom_prompt']) && !empty($settings['custom_prompt'])) {
+        if (isset($settings['custom_prompt']) && !empty($settings['use_custom_prompt'])) {
             $prompt = $settings['custom_prompt'];
         } else {
             $parts = [];
@@ -73,6 +73,24 @@ class AICP_Prompt_Builder {
             }
             if (!empty($settings['example'])) {
                 $parts[] = 'EJEMPLO DE RESPUESTA: ' . $settings['example'];
+            }
+
+            if (!empty($settings['lead_fields']) && is_array($settings['lead_fields'])) {
+                $fields_desc = [];
+                foreach ($settings['lead_fields'] as $field) {
+                    $required = !empty($field['required']) ? '(Obligatorio)' : '(Opcional)';
+                    $label    = $field['label'] ?? ($field['name'] ?? '');
+                    if ($label === '') {
+                        continue;
+                    }
+                    $fields_desc[] = "- {$label} {$required}";
+                }
+
+                if (!empty($fields_desc)) {
+                    $parts[] = "INSTRUCCIÓN DE CAPTURA DE DATOS:\nDebes obtener la siguiente información del usuario de manera natural durante la conversación:\n"
+                        . implode("\n", $fields_desc)
+                        . "\n\nCuando obtengas estos datos, el sistema los detectará automáticamente. No menciones 'JSON' ni códigos internos al usuario, solo pide los datos.";
+                }
             }
 
             if (!empty($page_context)) {

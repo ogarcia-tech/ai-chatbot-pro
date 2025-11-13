@@ -701,5 +701,4 @@ class AICP_Ajax_Handler {
     }
 
 } // Fin de la clase AICP_Ajax_Handler
-?>
 
