@@ -465,14 +465,11 @@ class AICP_Ajax_Handler {
         // Decidir si usar webhook
         $use_webhook = !empty($assistant_settings['forward_to_webhook']) && !empty($assistant_settings['forward_webhook_url']);
 
-        // Calcular system_prompt
-        $system_prompt = '';
+        // Calcular prompt maestro
         if (!class_exists('AICP_Prompt_Builder') && defined('AICP_PLUGIN_DIR') && file_exists(AICP_PLUGIN_DIR . 'includes/class-prompt-builder.php')) {
             require_once AICP_PLUGIN_DIR . 'includes/class-prompt-builder.php';
         }
-        if (class_exists('AICP_Prompt_Builder')) {
-            $system_prompt = AICP_Prompt_Builder::build($assistant_settings, $page_context);
-        } else { $system_prompt = 'Eres un asistente.'; } // Fallback muy básico
+        $system_prompt = class_exists('AICP_Prompt_Builder') ? AICP_Prompt_Builder::build($assistant_settings, $page_context) : 'Eres un asistente.';
 
         // Conversación para API/Webhook
         $full_conversation_for_api = [];
@@ -490,39 +487,29 @@ class AICP_Ajax_Handler {
             $reply = $webhook_result['reply'];
             $metadata = $webhook_result['metadata'] ?? [];
         } else {
-            // Lógica API OpenAI Chat Completions (versión base)
-            $api_key = $global_settings['api_key'] ?? '';
-            if (empty($api_key)) {
-                wp_send_json_error(['message' => __('La API Key de OpenAI no está configurada.', 'ai-chatbot-pro')]); return;
+            if (!class_exists('AICP_Model_Router')) {
+                require_once AICP_PLUGIN_DIR . 'includes/class-model-router.php';
             }
-            $api_url = 'https://api.openai.com/v1/chat/completions';
-            $model = $assistant_settings['model'] ?? null;
-            if (!defined('AICP_AVAILABLE_MODELS')) {
-                 $model_list_path = AICP_PLUGIN_DIR . 'includes/model-list.php';
-                 if (file_exists($model_list_path)) require_once $model_list_path;
-            }
-            if (!defined('AICP_AVAILABLE_MODELS') || !isset(AICP_AVAILABLE_MODELS[$model])) {
-                 $model = defined('AICP_AVAILABLE_MODELS') ? array_key_first(AICP_AVAILABLE_MODELS) : 'gpt-4o-mini';
+            if (!class_exists('AICP_Crypto_Helper')) {
+                require_once AICP_PLUGIN_DIR . 'includes/class-crypto-helper.php';
             }
 
-            $api_args = [
-                'method' => 'POST', 'headers' => ['Content-Type' => 'application/json', 'Authorization' => 'Bearer ' . $api_key],
-                'body' => wp_json_encode(['model' => $model, 'messages' => $full_conversation_for_api]),
-                'timeout' => 60,
-            ];
-            $api_response = wp_remote_post($api_url, $api_args);
+            $providers = get_option('aicp_model_providers', []);
+            $provider_key = $assistant_settings['provider'] ?? 'openai';
+            $provider_settings = $providers[$provider_key] ?? [];
 
-            if (is_wp_error($api_response)) {
-                wp_send_json_error(['message' => $api_response->get_error_message()]); return;
+            if (!empty($provider_settings['api_key'])) {
+                $provider_settings['api_key'] = AICP_Crypto_Helper::decrypt($provider_settings['api_key']);
             }
-            $body = json_decode(wp_remote_retrieve_body($api_response), true);
-            if (isset($body['choices'][0]['message']['content'])) {
-                $reply = trim($body['choices'][0]['message']['content']);
-            } else {
-                $error_message = $body['error']['message'] ?? __('Respuesta inesperada de OpenAI.', 'ai-chatbot-pro');
-                error_log("AICP OpenAI Error: " . $error_message . " | Body: " . wp_remote_retrieve_body($api_response));
-                wp_send_json_error(['message' => $error_message]); return;
+
+            $driver = AICP_Model_Router::get_driver($provider_key);
+            $driver_result = $driver->send_message($system_prompt, $history, $provider_settings);
+
+            if (is_wp_error($driver_result)) {
+                wp_send_json_error(['message' => $driver_result->get_error_message()]); return;
             }
+
+            $reply = $driver_result;
         }
         // --- FIN LÓGICA WEBHOOK o API ---
 

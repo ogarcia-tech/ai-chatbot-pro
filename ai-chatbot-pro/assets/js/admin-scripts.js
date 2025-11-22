@@ -3,8 +3,7 @@
  */
 jQuery(function($) {
 
-    if (typeof aicp_admin_params === 'undefined') return;
-
+    window.aicp_admin_params = window.aicp_admin_params || {};
     const leadFieldDefinitions = aicp_admin_params.lead_fields || {};
     const escapeHtml = (text) => $('<div/>').text(text == null ? '' : String(text)).html();
     const navLockMessage = aicp_admin_params.webhook_lock_message || '';

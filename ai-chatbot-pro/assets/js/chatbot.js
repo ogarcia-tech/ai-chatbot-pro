@@ -397,47 +397,108 @@ function renderQuickReplies() {
         }, delay * 1000);
     }
 
-    function addMessageToChat(role, text, isCalendarMessage = false) {
+    function renderTextWithLineBreaks($container, text) {
+        const safeText = typeof text === 'string' ? text : '';
+        const parts = safeText.split(/\n/);
+        $container.empty();
+        parts.forEach((part, index) => {
+            $container.append(document.createTextNode(part));
+            if (index < parts.length - 1) {
+                $container.append('<br>');
+            }
+        });
+    }
+
+    function smoothScrollToMessage($msg) {
+        const $chatBody = $('.aicp-chat-body');
+        if (!$chatBody.length) return;
+        const target = $msg.position() ? $msg.position().top + $chatBody.scrollTop() : $chatBody[0].scrollHeight;
+        $chatBody.stop().animate({ scrollTop: target }, 200);
+    }
+
+    function chunkTextForStream(text, size = 28) {
+        const safeText = typeof text === 'string' ? text : String(text ?? '');
+        const chunks = [];
+        for (let i = 0; i < safeText.length; i += size) {
+            chunks.push(safeText.slice(i, i + size));
+        }
+        return chunks.length ? chunks : [''];
+    }
+
+    function addMessageToChat(role, text, options = {}) {
+        const { stream = false, isCalendarMessage = false } = options;
         // --- INICIO: Logging ---
-        console.log(`[AICP Debug] Adding message to chat: Role=${role}, Calendar=${isCalendarMessage}, Text=`, text);
+        console.log(`[AICP Debug] Adding message to chat: Role=${role}, Calendar=${isCalendarMessage}, Stream=${stream}, Text=`, text);
         // --- FIN: Logging ---
         resetInactivityTimer();
         const $chatBody = $('.aicp-chat-body');
         const messageText = text == null ? '' : String(text); // Asegurar que sea string
-        let sanitizedText = $('<div/>').text(messageText).html().replace(/\n/g, '<br>');
-
-        if (isCalendarMessage && params.calendar_url) {
-            sanitizedText += `<br><br><a href="${params.calendar_url}" class="aicp-calendar-link" data-log-id="${logId}" data-assistant-id="${params.assistant_id}" data-calendar-nonce="${params.calendar_nonce}" target="_blank">📅 Reservar cita</a>`;
-        }
-
         const avatarSrc = (role === 'bot') ? params.bot_avatar : params.user_avatar;
 
-        const feedbackButtons = (role === 'bot' && params.enable_feedback) ? `
-        <div class="aicp-feedback-buttons">
-            <button class="aicp-feedback-btn" data-feedback="1" aria-label="Me gusta">...</button>
-            <button class="aicp-feedback-btn" data-feedback="-1" aria-label="No me gusta">...</button>
-        </div>` : '';
-
-        const messageHTML = `
+        const $msg = $(`
         <div class="aicp-chat-message ${role}">
             <div class="aicp-message-avatar">
                 <img src="${avatarSrc}" alt="Avatar de ${role}">
             </div>
             <div class="aicp-message-bubble">
-                ${sanitizedText}
-                ${feedbackButtons}
+                <div class="aicp-message-text"></div>
             </div>
-        </div>`;
+        </div>`);
 
-        const $msg = $(messageHTML);
+        const $textContainer = $msg.find('.aicp-message-text');
+        const feedbackButtons = (role === 'bot' && params.enable_feedback) ? `
+            <div class="aicp-feedback-buttons">
+                <button class="aicp-feedback-btn" data-feedback="1" aria-label="Me gusta">...</button>
+                <button class="aicp-feedback-btn" data-feedback="-1" aria-label="No me gusta">...</button>
+            </div>` : '';
+
         $chatBody.append($msg);
-        scrollToMessage($msg); // Intentar hacer scroll siempre
+        smoothScrollToMessage($msg);
 
-        if (isFarewell(text)) {
-            // --- INICIO: Logging ---
-            console.log('[AICP Debug] Farewell detected, scheduling finalizeChat.');
-            // --- FIN: Logging ---
-            setTimeout(finalizeChat, 1000);
+        if (stream) {
+            const chunks = chunkTextForStream(messageText);
+            let accumulated = '';
+            const appendCalendarLink = () => {
+                if (isCalendarMessage && params.calendar_url) {
+                    const $link = $(`<br><br><a href="${params.calendar_url}" class="aicp-calendar-link" data-log-id="${logId}" data-assistant-id="${params.assistant_id}" data-calendar-nonce="${params.calendar_nonce}" target="_blank">📅 Reservar cita</a>`);
+                    $textContainer.append($link);
+                }
+                if (feedbackButtons) {
+                    $msg.find('.aicp-message-bubble').append(feedbackButtons);
+                }
+            };
+
+            const streamNextChunk = (index = 0) => {
+                accumulated += chunks[index];
+                renderTextWithLineBreaks($textContainer, accumulated);
+                smoothScrollToMessage($msg);
+                if (index < chunks.length - 1) {
+                    setTimeout(() => streamNextChunk(index + 1), 55);
+                } else {
+                    appendCalendarLink();
+                    if (isFarewell(messageText)) {
+                        setTimeout(finalizeChat, 1000);
+                    }
+                }
+            };
+
+            streamNextChunk();
+        } else {
+            renderTextWithLineBreaks($textContainer, messageText);
+            if (isCalendarMessage && params.calendar_url) {
+                const $link = $(`<br><br><a href="${params.calendar_url}" class="aicp-calendar-link" data-log-id="${logId}" data-assistant-id="${params.assistant_id}" data-calendar-nonce="${params.calendar_nonce}" target="_blank">📅 Reservar cita</a>`);
+                $textContainer.append($link);
+            }
+            if (feedbackButtons) {
+                $msg.find('.aicp-message-bubble').append(feedbackButtons);
+            }
+            smoothScrollToMessage($msg);
+            if (isFarewell(text)) {
+                // --- INICIO: Logging ---
+                console.log('[AICP Debug] Farewell detected, scheduling finalizeChat.');
+                // --- FIN: Logging ---
+                setTimeout(finalizeChat, 1000);
+            }
         }
     }
 
@@ -523,22 +584,7 @@ function renderQuickReplies() {
     }
 
     function scrollToMessage($msg) {
-        const $chatBody = $('.aicp-chat-body');
-        // Usar scrollTop nativo que es más fiable
-        // Calcular la posición relativa al contenedor y sumar el scroll actual
-        try {
-             const msgTopRelativeToContainer = $msg.position().top;
-             const currentScrollTop = $chatBody.scrollTop();
-             const newScrollTop = currentScrollTop + msgTopRelativeToContainer - 10; // Pequeño offset
-             $chatBody.scrollTop(newScrollTop);
-             // --- INICIO: Logging ---
-             // console.log(`[AICP Debug] Scrolling to message. New scrollTop: ${newScrollTop}`);
-             // --- FIN: Logging ---
-        } catch(e) {
-             console.error("[AICP Debug] Error calculating scroll position:", e);
-             // Fallback: scroll al fondo
-             $chatBody.scrollTop($chatBody[0].scrollHeight);
-        }
+        smoothScrollToMessage($msg);
     }
 
 
@@ -644,11 +690,9 @@ function renderQuickReplies() {
 
                     // Validar que botReply sea string antes de procesar
                     if (typeof botReply === 'string') {
-                         const parts = splitLongMessage(botReply, 170);
-                         parts.forEach(part => {
-                             conversationHistory.push({ role: 'assistant', content: part });
-                             addMessageToChat('bot', part);
-                         });
+                         conversationHistory.push({ role: 'assistant', content: botReply });
+                         const isCalendarMessage = parsedResponse.data.lead_status === 'calendar';
+                         addMessageToChat('bot', botReply, { stream: true, isCalendarMessage });
                     } else {
                          // --- INICIO: Logging ---
                          console.error('[AICP Debug] Invalid reply format received from server:', botReply);
