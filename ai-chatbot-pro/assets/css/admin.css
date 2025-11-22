@@ -235,3 +235,16 @@
 #aicp_test_webhook_feedback .aicp-webhook-feedback-details table.widefat th {
     word-break: break-word;
 }
+
+.aicp-provider-test {
+    margin-top: 12px;
+}
+
+.aicp-provider-test .spinner {
+    float: none;
+    margin: 0 8px 0 6px;
+}
+
+.aicp-provider-feedback {
+    margin-top: 10px;
+}

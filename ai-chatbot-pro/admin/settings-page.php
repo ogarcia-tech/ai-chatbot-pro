@@ -55,6 +55,11 @@ function aicp_provider_openai_render() {
     <input type="text" name="aicp_model_providers[openai][model]" id="aicp_openai_model" value="<?php echo $model; ?>" class="regular-text" placeholder="gpt-4o" /></p>
     <p><label for="aicp_openai_base_url"><?php _e('URL alternativa', 'ai-chatbot-pro'); ?></label><br>
     <input type="url" name="aicp_model_providers[openai][base_url]" id="aicp_openai_base_url" value="<?php echo $base_url; ?>" class="regular-text" placeholder="https://tu-proxy/v1/chat/completions" /></p>
+    <div class="aicp-provider-test" data-provider="openai">
+        <button type="button" class="button button-secondary aicp-provider-test-button" data-provider="openai"><?php _e('Probar conexión con OpenAI', 'ai-chatbot-pro'); ?></button>
+        <span class="spinner" id="aicp_provider_openai_spinner"></span>
+        <div id="aicp_provider_openai_feedback" class="notice notice-alt inline aicp-provider-feedback" style="display:none;" aria-live="polite" role="status"></div>
+    </div>
     <?php
 }
 
@@ -74,6 +79,11 @@ function aicp_provider_gemini_render() {
     <input type="text" name="aicp_model_providers[gemini][model]" id="aicp_gemini_model" value="<?php echo $model; ?>" class="regular-text" placeholder="gemini-1.5-pro" /></p>
     <p><label for="aicp_gemini_endpoint"><?php _e('Ruta de endpoint', 'ai-chatbot-pro'); ?></label><br>
     <input type="url" name="aicp_model_providers[gemini][endpoint]" id="aicp_gemini_endpoint" value="<?php echo $endpoint; ?>" class="regular-text" placeholder="https://generativelanguage.googleapis.com/v1beta/" /></p>
+    <div class="aicp-provider-test" data-provider="gemini">
+        <button type="button" class="button button-secondary aicp-provider-test-button" data-provider="gemini"><?php _e('Probar conexión con Gemini', 'ai-chatbot-pro'); ?></button>
+        <span class="spinner" id="aicp_provider_gemini_spinner"></span>
+        <div id="aicp_provider_gemini_feedback" class="notice notice-alt inline aicp-provider-feedback" style="display:none;" aria-live="polite" role="status"></div>
+    </div>
     <?php
 }
 
@@ -99,6 +109,11 @@ function aicp_provider_custom_render() {
     <input type="number" step="0.1" name="aicp_model_providers[custom][temperature]" id="aicp_custom_temperature" value="<?php echo $temperature; ?>" class="small-text" /></p>
     <p><label for="aicp_custom_max_tokens"><?php _e('Máx. tokens (opcional)', 'ai-chatbot-pro'); ?></label><br>
     <input type="number" name="aicp_model_providers[custom][max_tokens]" id="aicp_custom_max_tokens" value="<?php echo $max_tokens; ?>" class="small-text" /></p>
+    <div class="aicp-provider-test" data-provider="custom">
+        <button type="button" class="button button-secondary aicp-provider-test-button" data-provider="custom"><?php _e('Probar conexión con el endpoint', 'ai-chatbot-pro'); ?></button>
+        <span class="spinner" id="aicp_provider_custom_spinner"></span>
+        <div id="aicp_provider_custom_feedback" class="notice notice-alt inline aicp-provider-feedback" style="display:none;" aria-live="polite" role="status"></div>
+    </div>
     <?php
 }
 
@@ -132,6 +147,31 @@ function aicp_render_settings_page() {
     </div>
     <?php
 }
+
+/**
+ * Encola scripts y estilos para la página de ajustes.
+ */
+function aicp_settings_admin_assets($hook) {
+    if ($hook !== 'aicp_assistant_page_aicp-settings') {
+        return;
+    }
+
+    wp_enqueue_style('aicp-admin-styles', AICP_PLUGIN_URL . 'assets/css/admin.css', [], AICP_VERSION);
+    wp_enqueue_script('aicp-settings-script', AICP_PLUGIN_URL . 'assets/js/settings.js', ['jquery'], AICP_VERSION, true);
+
+    wp_localize_script('aicp-settings-script', 'aicp_settings_params', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce'    => wp_create_nonce('aicp_test_model_nonce'),
+        'labels'   => [
+            'checking' => __('Comprobando la conexión...', 'ai-chatbot-pro'),
+            'success'  => __('Conexión verificada correctamente.', 'ai-chatbot-pro'),
+            'error'    => __('No se pudo verificar la conexión. Revisa la configuración e inténtalo de nuevo.', 'ai-chatbot-pro'),
+            'preview'  => __('Respuesta del modelo', 'ai-chatbot-pro'),
+            'missing'  => __('Rellena el modelo y los campos obligatorios antes de probar.', 'ai-chatbot-pro'),
+        ],
+    ]);
+}
+add_action('admin_enqueue_scripts', 'aicp_settings_admin_assets');
 
 /**
  * Sanitiza las opciones de ajustes generales.
