@@ -129,6 +129,12 @@ function aicp_admin_scripts($hook) {
             'color_user_text' => $settings['color_user_text'] ?? '#000000',
             'provider' => $settings['provider'] ?? 'openai',
             'master_prompt' => $settings['master_prompt'] ?? '',
+            'template_id' => $settings['template_id'] ?? '',
+            'persona' => $settings['persona'] ?? '',
+            'objective' => $settings['objective'] ?? '',
+            'length_tone' => $settings['length_tone'] ?? '',
+            'example' => $settings['example'] ?? '',
+            'quick_replies' => isset($settings['quick_replies']) && is_array($settings['quick_replies']) ? array_values($settings['quick_replies']) : [],
             'forward_to_webhook' => !empty($settings['forward_to_webhook']),
         ],
         'meta' => $meta,
@@ -225,6 +231,15 @@ function aicp_render_instructions_tab($v) {
         <table class="form-table">
 
         <tr>
+            <th><label for="aicp_template_id"><?php _e('Plantilla de Asistente', 'ai-chatbot-pro'); ?></label></th>
+            <td>
+                <select name="aicp_settings[template_id]" id="aicp_template_id" class="regular-text">
+                    <option value=""><?php _e('Personalizado', 'ai-chatbot-pro'); ?></option>
+                </select>
+                <p class="description"><?php _e('Selecciona una plantilla predefinida para autocompletar los campos.', 'ai-chatbot-pro'); ?></p>
+            </td>
+        </tr>
+        <tr>
             <th><label for="aicp_provider"><?php _e('Proveedor de modelo', 'ai-chatbot-pro'); ?></label></th>
             <td>
                 <?php $provider = $v['provider'] ?? 'openai'; ?>
@@ -237,10 +252,36 @@ function aicp_render_instructions_tab($v) {
             </td>
         </tr>
         <tr>
-            <th><label for="aicp_master_prompt"><?php _e('Prompt maestro', 'ai-chatbot-pro'); ?></label></th>
+            <th><label for="aicp_persona"><?php _e('Nombre y Personalidad', 'ai-chatbot-pro'); ?></label></th>
+            <td><textarea name="aicp_settings[persona]" id="aicp_persona" rows="3" class="large-text"><?php echo esc_textarea($v['persona'] ?? ''); ?></textarea></td>
+        </tr>
+        <tr>
+            <th><label for="aicp_objective"><?php _e('Objetivo Principal', 'ai-chatbot-pro'); ?></label></th>
+            <td><textarea name="aicp_settings[objective]" id="aicp_objective" rows="2" class="large-text"><?php echo esc_textarea($v['objective'] ?? ''); ?></textarea></td>
+        </tr>
+        <tr>
+            <th><label for="aicp_length_tone"><?php _e('Longitud y Tono', 'ai-chatbot-pro'); ?></label></th>
+            <td><textarea name="aicp_settings[length_tone]" id="aicp_length_tone" rows="3" class="large-text"><?php echo esc_textarea($v['length_tone'] ?? ''); ?></textarea></td>
+        </tr>
+        <tr>
+            <th><label for="aicp_example"><?php _e('Ejemplo de Respuesta', 'ai-chatbot-pro'); ?></label></th>
+            <td><textarea name="aicp_settings[example]" id="aicp_example" rows="5" class="large-text"><?php echo esc_textarea($v['example'] ?? ''); ?></textarea></td>
+        </tr>
+        <tr>
+            <th><label><?php _e('Respuestas Rápidas', 'ai-chatbot-pro'); ?></label></th>
             <td>
-                <textarea name="aicp_settings[master_prompt]" id="aicp_master_prompt" rows="12" class="large-text" placeholder="<?php esc_attr_e('Escribe aquí todas las instrucciones del asistente en un solo bloque.', 'ai-chatbot-pro'); ?>"><?php echo esc_textarea($prompt); ?></textarea>
-                <p class="description"><?php _e('El prompt completo se guarda tal cual y define el comportamiento del chatbot.', 'ai-chatbot-pro'); ?></p>
+                <input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][0] ?? ''); ?>" class="large-text" placeholder="<?php esc_attr_e('Ej: Me interesa el servicio de SEO', 'ai-chatbot-pro'); ?>"><br>
+                <input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][1] ?? ''); ?>" class="large-text" placeholder="<?php esc_attr_e('Ej: Quiero una web económica', 'ai-chatbot-pro'); ?>"><br>
+                <input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][2] ?? ''); ?>" class="large-text" placeholder="<?php esc_attr_e('Ej: ¿Podéis llamarme?', 'ai-chatbot-pro'); ?>">
+                <p class="description"><?php _e('Estas respuestas aparecerán como botones clicables para el usuario.', 'ai-chatbot-pro'); ?></p>
+            </td>
+        </tr>
+        <tr>
+            <th><label for="aicp_custom_prompt"><?php _e('Prompt maestro (unificado)', 'ai-chatbot-pro'); ?></label></th>
+            <td>
+                <label><input type="checkbox" id="aicp_edit_prompt_toggle"> <?php _e('Editar manualmente el prompt generado por la plantilla', 'ai-chatbot-pro'); ?></label>
+                <textarea name="aicp_settings[master_prompt]" id="aicp_custom_prompt" rows="12" class="large-text" placeholder="<?php esc_attr_e('El prompt maestro combina la plantilla y tus ajustes personalizados.', 'ai-chatbot-pro'); ?>"><?php echo esc_textarea($prompt); ?></textarea>
+                <p class="description"><?php _e('El prompt se genera a partir de la plantilla seleccionada y estos campos. Activa la casilla si quieres editarlo manualmente.', 'ai-chatbot-pro'); ?></p>
             </td>
         </tr>
         </table>
@@ -457,6 +498,16 @@ function aicp_save_meta_box_data($post_id) {
         // Instrucciones
         $current['provider'] = isset($s['provider']) ? sanitize_key($s['provider']) : 'openai';
         $current['master_prompt'] = isset($s['master_prompt']) ? wp_kses_post(wp_unslash($s['master_prompt'])) : '';
+        $current['template_id'] = isset($s['template_id']) ? sanitize_text_field($s['template_id']) : '';
+        $current['persona'] = isset($s['persona']) ? sanitize_textarea_field($s['persona']) : '';
+        $current['objective'] = isset($s['objective']) ? sanitize_textarea_field($s['objective']) : '';
+        $current['length_tone'] = isset($s['length_tone']) ? sanitize_textarea_field($s['length_tone']) : '';
+        $current['example'] = isset($s['example']) ? sanitize_textarea_field($s['example']) : '';
+        if (isset($s['quick_replies']) && is_array($s['quick_replies'])) {
+            $current['quick_replies'] = array_values(array_filter(array_map('sanitize_text_field', $s['quick_replies'])));
+        } else {
+            $current['quick_replies'] = [];
+        }
 
         // Ajustes de captura de leads simplificados
         $current['lead_history_enabled'] = 1;
