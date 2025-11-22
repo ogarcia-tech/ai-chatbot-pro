@@ -127,12 +127,8 @@ function aicp_admin_scripts($hook) {
             'color_bot_text' => $settings['color_bot_text'] ?? '#333333',
             'color_user_bg' => $settings['color_user_bg'] ?? '#dcf8c6',
             'color_user_text' => $settings['color_user_text'] ?? '#000000',
-            'template_id' => $settings['template_id'] ?? '',
-            'persona' => $settings['persona'] ?? '',
-            'objective' => $settings['objective'] ?? '',
-            'length_tone' => $settings['length_tone'] ?? '',
-            'example' => $settings['example'] ?? '',
-            'quick_replies' => is_array($settings['quick_replies'] ?? null) ? $settings['quick_replies'] : [],
+            'provider' => $settings['provider'] ?? 'openai',
+            'master_prompt' => $settings['master_prompt'] ?? '',
             'forward_to_webhook' => !empty($settings['forward_to_webhook']),
         ],
         'meta' => $meta,
@@ -219,10 +215,7 @@ function aicp_render_main_meta_box($post) {
 }
 
 function aicp_render_instructions_tab($v) {
-    if (!class_exists('AICP_Prompt_Builder')) {
-        require_once AICP_PLUGIN_DIR . 'includes/class-prompt-builder.php';
-    }
-    $prompt = $v['custom_prompt'] ?? ($v['compiled_prompt'] ?? AICP_Prompt_Builder::build($v));
+    $prompt = $v['master_prompt'] ?? '';
     $is_forwarding_enabled = !empty($v['forward_to_webhook']);
     ?>
     <div class="notice notice-warning inline aicp-instructions-lock-notice"<?php echo $is_forwarding_enabled ? '' : ' style="display:none;"'; ?>>
@@ -232,38 +225,22 @@ function aicp_render_instructions_tab($v) {
         <table class="form-table">
 
         <tr>
-            <th><label for="aicp_model"><?php _e('Modelo de IA', 'ai-chatbot-pro'); ?></label></th>
+            <th><label for="aicp_provider"><?php _e('Proveedor de modelo', 'ai-chatbot-pro'); ?></label></th>
             <td>
-                <select name="aicp_settings[model]" id="aicp_model" class="regular-text">
-                    <?php
-                    $model = isset($v['model']) && isset(AICP_AVAILABLE_MODELS[$v['model']]) ? $v['model'] : array_key_first(AICP_AVAILABLE_MODELS);
-                    foreach (AICP_AVAILABLE_MODELS as $value => $label) {
-                        printf('<option value="%s" %s>%s</option>', esc_attr($value), selected($model, $value, false), esc_html($label));
-                    }
-                    ?>
+                <?php $provider = $v['provider'] ?? 'openai'; ?>
+                <select name="aicp_settings[provider]" id="aicp_provider">
+                    <option value="openai" <?php selected($provider, 'openai'); ?>><?php _e('OpenAI / ChatGPT', 'ai-chatbot-pro'); ?></option>
+                    <option value="gemini" <?php selected($provider, 'gemini'); ?>><?php _e('Google Gemini', 'ai-chatbot-pro'); ?></option>
+                    <option value="custom" <?php selected($provider, 'custom'); ?>><?php _e('Otro proveedor', 'ai-chatbot-pro'); ?></option>
                 </select>
+                <p class="description"><?php _e('Elige qué driver se usará para procesar el prompt maestro.', 'ai-chatbot-pro'); ?></p>
             </td>
         </tr>
         <tr>
-            <th><label for="aicp_template_id"><?php _e('Plantilla', 'ai-chatbot-pro'); ?></label></th>
+            <th><label for="aicp_master_prompt"><?php _e('Prompt maestro', 'ai-chatbot-pro'); ?></label></th>
             <td>
-                <select name="aicp_settings[template_id]" id="aicp_template_id">
-                    <option value=""><?php _e('Selecciona una plantilla', 'ai-chatbot-pro'); ?></option>
-                </select>
-                <p class="description"><?php _e('Al seleccionar una plantilla, los campos de abajo se rellenarán automáticamente con un contenido base que puedes personalizar. Si la editas, tu versión personalizada se guardará.', 'ai-chatbot-pro'); ?></p>
-            </td>
-        </tr>
-
-        <tr><th><label for="aicp_persona"><?php _e('Nombre y Personalidad', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[persona]" id="aicp_persona" rows="3" class="large-text"><?php echo esc_textarea($v['persona'] ?? ''); ?></textarea></td></tr>
-        <tr><th><label for="aicp_objective"><?php _e('Objetivo Principal', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[objective]" id="aicp_objective" rows="2" class="large-text"><?php echo esc_textarea($v['objective'] ?? ''); ?></textarea></td></tr>
-        <tr><th><label for="aicp_length_tone"><?php _e('Longitud y Tono', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[length_tone]" id="aicp_length_tone" rows="3" class="large-text"><?php echo esc_textarea($v['length_tone'] ?? ''); ?></textarea></td></tr>
-        <tr><th><label for="aicp_example"><?php _e('Ejemplo de Respuesta', 'ai-chatbot-pro'); ?></label></th><td><textarea name="aicp_settings[example]" id="aicp_example" rows="5" class="large-text"><?php echo esc_textarea($v['example'] ?? ''); ?></textarea></td></tr>
-        <tr><th><label><?php _e('Respuestas Rápidas', 'ai-chatbot-pro'); ?></label></th><td><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][0] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Me interesa el servicio de SEO', 'ai-chatbot-pro'); ?>"><br><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][1] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: Quiero una web económica', 'ai-chatbot-pro'); ?>"><br><input type="text" name="aicp_settings[quick_replies][]" value="<?php echo esc_attr($v['quick_replies'][2] ?? ''); ?>" class="large-text" placeholder="<?php _e('Ej: ¿Podéis llamarme?', 'ai-chatbot-pro'); ?>"><p class="description"><?php _e('Estas respuestas aparecerán como botones clicables para el usuario.', 'ai-chatbot-pro'); ?></p></td></tr>
-        <tr>
-            <th><label for="aicp_custom_prompt"><?php _e('Prompt generado', 'ai-chatbot-pro'); ?></label></th>
-            <td>
-                <textarea name="aicp_settings[custom_prompt]" id="aicp_custom_prompt" rows="8" class="large-text" readonly><?php echo esc_textarea($prompt); ?></textarea>
-                <p><label><input type="checkbox" name="aicp_settings[use_custom_prompt]" id="aicp_edit_prompt_toggle" <?php checked(!empty($v['custom_prompt'])); ?>> <?php _e('Editar manualmente', 'ai-chatbot-pro'); ?></label></p>
+                <textarea name="aicp_settings[master_prompt]" id="aicp_master_prompt" rows="12" class="large-text" placeholder="<?php esc_attr_e('Escribe aquí todas las instrucciones del asistente en un solo bloque.', 'ai-chatbot-pro'); ?>"><?php echo esc_textarea($prompt); ?></textarea>
+                <p class="description"><?php _e('El prompt completo se guarda tal cual y define el comportamiento del chatbot.', 'ai-chatbot-pro'); ?></p>
             </td>
         </tr>
         </table>
@@ -349,57 +326,9 @@ function aicp_render_integrations_tab($assistant_id, $v) {
 }
 
 function aicp_render_leads_tab($assistant_id, $v) {
-    global $wpdb;
     $logs_table = $wpdb->prefix . 'aicp_chat_logs';
 
-    $auto_collect = !empty($v['lead_auto_collect']);
-    $lead_email   = $v['lead_email'] ?? '';
-    $webhook      = esc_url($v['webhook_url'] ?? '');
-    $calendar_url = esc_url($v['calendar_url'] ?? '');
-    $integration_active = !empty($v['forward_to_webhook']) && !empty($v['forward_webhook_url']);
-    
-    // Nuevo campo para los campos de lead dinámicos
-    $lead_fields = isset($v['lead_fields']) && is_array($v['lead_fields']) ? $v['lead_fields'] : [];
-
-    echo '<h4>' . __('Ajustes de Captura de Leads', 'ai-chatbot-pro') . '</h4>';
-
-    $notice_style = $integration_active ? '' : ' style="display:none;"';
-    echo '<div class="notice notice-warning inline aicp-leads-lock-notice"' . $notice_style . '><p>' . __('La integración con webhook está activa. Desactívala para volver a entrenar el asistente o modificar estas opciones PRO.', 'ai-chatbot-pro') . '</p></div>';
-
-    $fieldset_classes = 'aicp-lead-settings';
-    if ($integration_active) {
-        $fieldset_classes .= ' aicp-lead-settings--locked';
-    }
-
-    echo '<fieldset class="' . esc_attr($fieldset_classes) . '">';
-    echo '<table class="form-table"><tbody>';
-    echo '<tr><th><label>' . __('Captura Automática', 'ai-chatbot-pro') . '</label></th><td><label><input type="checkbox" name="aicp_settings[lead_auto_collect]" value="1" ' . checked($auto_collect, true, false) . '> ' . __('Solicitar datos de contacto automáticamente', 'ai-chatbot-pro') . '</label></td></tr>';
-    echo '<tr><th><label for="aicp_lead_email">' . __('Email de notificación', 'ai-chatbot-pro') . '</label></th><td><input type="email" id="aicp_lead_email" name="aicp_settings[lead_email]" value="' . esc_attr($lead_email) . '" class="regular-text" /><br /><span class="description">' . sprintf(__('Si se deja vacío, se usará %s.', 'ai-chatbot-pro'), esc_html(get_option('admin_email'))) . '</span></td></tr>';
-    echo '<tr><th><label for="aicp_webhook_url">' . __('Webhook URL', 'ai-chatbot-pro') . '</label></th><td><input type="url" name="aicp_settings[webhook_url]" id="aicp_webhook_url" value="' . esc_attr($webhook) . '" class="regular-text" placeholder="https://example.com/webhook" /></td></tr>';
-    echo '<tr><th><label for="aicp_calendar_url">' . __('URL del Calendario para Reservar Cita', 'ai-chatbot-pro') . '</label></th><td><input type="url" name="aicp_settings[calendar_url]" id="aicp_calendar_url" value="' . esc_attr($calendar_url) . '" class="regular-text" placeholder="https://example.com/agenda" /><br /><span class="description">' . __('Si se configura, el asistente mostrará un botón para reservar una cita cuando detecte intención de agendar.', 'ai-chatbot-pro') . '</span></td></tr>';
-    echo '</tbody></table>';
-
-    // Sección para campos de lead dinámicos
-    echo '<h4>' . __('Campos de Lead Personalizados', 'ai-chatbot-pro') . '</h4>';
-    echo '<p class="description">' . __('Añade los campos de información específica que el asistente debe capturar.', 'ai-chatbot-pro') . '</p>';
-    echo '<table class="form-table aicp-lead-fields-table"><thead><tr><th>' . __('Etiqueta', 'ai-chatbot-pro') . '</th><th>' . __('Nombre de Campo', 'ai-chatbot-pro') . '</th><th>' . __('Tipo', 'ai-chatbot-pro') . '</th><th>' . __('Requerido', 'ai-chatbot-pro') . '</th><th>' . __('Acciones', 'ai-chatbot-pro') . '</th></tr></thead><tbody>';
-
-    foreach ($lead_fields as $field) {
-        $required = isset($field['required']) && $field['required'] === '1' ? '1' : '0';
-        echo '<tr>';
-        echo '<td><input type="text" name="aicp_settings[lead_fields][' . esc_attr($field['name']) . '][label]" value="' . esc_attr($field['label']) . '" /></td>';
-        echo '<td><input type="text" name="aicp_settings[lead_fields][' . esc_attr($field['name']) . '][name]" value="' . esc_attr($field['name']) . '" readonly /></td>';
-        echo '<td><select name="aicp_settings[lead_fields][' . esc_attr($field['name']) . '][type]"><option value="text" ' . selected($field['type'], 'text', false) . '>Texto</option><option value="email" ' . selected($field['type'], 'email', false) . '>Email</option><option value="phone" ' . selected($field['type'], 'phone', false) . '>Teléfono</option><option value="date" ' . selected($field['type'], 'date', false) . '>Fecha</option></select></td>';
-        echo '<td><input type="checkbox" name="aicp_settings[lead_fields][' . esc_attr($field['name']) . '][required]" value="1" ' . checked($required, '1', false) . ' /></td>';
-        echo '<td><button type="button" class="button button-link-delete aicp-remove-lead-field">X</button></td>';
-        echo '</tr>';
-    }
-    
-    echo '</tbody></table>';
-    $add_button_attr = $integration_active ? ' disabled="disabled" aria-disabled="true"' : '';
-    echo '<button type="button" class="button aicp-add-lead-field"' . $add_button_attr . '>' . __('Añadir Campo', 'ai-chatbot-pro') . '</button>';
-    echo '</fieldset>';
-
+    echo '<p>' . __('El historial muestra las conversaciones y los datos estructurados capturados automáticamente. Los ajustes de leads se simplifican a los datos detectados dentro de cada conversación.', 'ai-chatbot-pro') . '</p>';
     // Historial de Conversaciones
     $table_name = $wpdb->prefix . 'aicp_chat_logs';
 
@@ -526,50 +455,11 @@ function aicp_save_meta_box_data($post_id) {
 
     if (!$lock_sections) {
         // Instrucciones
-        if (isset($s['model'])) {
-            $model = sanitize_text_field($s['model']);
-            $current['model'] = array_key_exists($model, AICP_AVAILABLE_MODELS) ? $model : array_key_first(AICP_AVAILABLE_MODELS);
-        } else {
-            $current['model'] = array_key_first(AICP_AVAILABLE_MODELS);
-        }
-        $current['persona'] = isset($s['persona']) ? sanitize_textarea_field($s['persona']) : '';
-        $current['objective'] = isset($s['objective']) ? sanitize_textarea_field($s['objective']) : '';
-        $current['length_tone'] = isset($s['length_tone']) ? sanitize_textarea_field($s['length_tone']) : '';
-        $current['example'] = isset($s['example']) ? sanitize_textarea_field($s['example']) : '';
-        $current['template_id'] = isset($s['template_id']) ? sanitize_text_field($s['template_id']) : '';
+        $current['provider'] = isset($s['provider']) ? sanitize_key($s['provider']) : 'openai';
+        $current['master_prompt'] = isset($s['master_prompt']) ? wp_kses_post(wp_unslash($s['master_prompt'])) : '';
 
-        if (isset($s['quick_replies']) && is_array($s['quick_replies'])) {
-            $current['quick_replies'] = array_map('sanitize_text_field', $s['quick_replies']);
-        }
-
-        if (!empty($s['use_custom_prompt']) && isset($s['custom_prompt'])) {
-            $current['custom_prompt'] = sanitize_textarea_field($s['custom_prompt']);
-        } else {
-            unset($current['custom_prompt']);
-        }
-
-        $current['compiled_prompt'] = sanitize_textarea_field(aicp_compile_prompt($current));
-
-        // Ajustes de captura de leads
-        $current['lead_auto_collect'] = !empty($s['lead_auto_collect']) ? 1 : 0;
-        $current['lead_email']        = isset($s['lead_email']) ? sanitize_email($s['lead_email']) : '';
-        $current['webhook_url']       = isset($s['webhook_url']) ? esc_url_raw($s['webhook_url']) : '';
-        $current['calendar_url']      = isset($s['calendar_url']) ? esc_url_raw($s['calendar_url']) : '';
-
-        // Guardar los nuevos campos de lead dinámicos
-        $current['lead_fields'] = [];
-        if (isset($s['lead_fields']) && is_array($s['lead_fields'])) {
-            foreach ($s['lead_fields'] as $field) {
-                if (!empty($field['name'])) {
-                    $current['lead_fields'][sanitize_key($field['name'])] = [
-                        'label' => sanitize_text_field($field['label'] ?? ''),
-                        'name' => sanitize_key($field['name']),
-                        'type' => sanitize_key($field['type'] ?? 'text'),
-                        'required' => isset($field['required']) ? 1 : 0,
-                    ];
-                }
-            }
-        }
+        // Ajustes de captura de leads simplificados
+        $current['lead_history_enabled'] = 1;
     }
 
     // Diseño

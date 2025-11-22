@@ -27,11 +27,11 @@ add_action('admin_menu', 'aicp_add_settings_page');
  */
 function aicp_register_general_settings() {
     register_setting('aicp_settings_group', 'aicp_settings', 'aicp_general_settings_sanitize');
-    register_setting('aicp_settings_group', 'aicp_assistant_templates', 'aicp_assistant_templates_sanitize');
-    add_settings_section('aicp_api_key_section', __('Ajustes de la API de OpenAI', 'ai-chatbot-pro'), null, 'aicp-settings');
-    add_settings_field('aicp_api_key', __('API Key', 'ai-chatbot-pro'), 'aicp_api_key_field_render', 'aicp-settings', 'aicp_api_key_section');
-    add_settings_section('aicp_templates_section', __('Plantillas del asistente', 'ai-chatbot-pro'), 'aicp_templates_section_render', 'aicp-settings');
-    add_settings_field('aicp_template_editor', __('Plantillas disponibles', 'ai-chatbot-pro'), 'aicp_template_editor_field_render', 'aicp-settings', 'aicp_templates_section');
+    register_setting('aicp_settings_group', 'aicp_model_providers', 'aicp_model_providers_sanitize');
+    add_settings_section('aicp_provider_section', __('Modelos y Proveedores', 'ai-chatbot-pro'), null, 'aicp-settings');
+    add_settings_field('aicp_provider_openai', __('OpenAI / ChatGPT', 'ai-chatbot-pro'), 'aicp_provider_openai_render', 'aicp-settings', 'aicp_provider_section');
+    add_settings_field('aicp_provider_gemini', __('Google Gemini', 'ai-chatbot-pro'), 'aicp_provider_gemini_render', 'aicp-settings', 'aicp_provider_section');
+    add_settings_field('aicp_provider_custom', __('Otros proveedores', 'ai-chatbot-pro'), 'aicp_provider_custom_render', 'aicp-settings', 'aicp_provider_section');
     do_action('aicp_after_settings_fields');
 }
 add_action('admin_init', 'aicp_register_general_settings');
@@ -39,10 +39,67 @@ add_action('admin_init', 'aicp_register_general_settings');
 /**
  * Renderiza el campo de la API Key.
  */
-function aicp_api_key_field_render() {
-    $options = get_option('aicp_settings');
-    $api_key = isset($options['api_key']) ? esc_attr($options['api_key']) : '';
-    echo '<input type="password" name="aicp_settings[api_key]" value="' . $api_key . '" class="regular-text" placeholder="' . __('Introduce tu clave API aquí', 'ai-chatbot-pro') . '">';
+function aicp_provider_openai_render() {
+    if (!class_exists('AICP_Crypto_Helper')) {
+        require_once AICP_PLUGIN_DIR . 'includes/class-crypto-helper.php';
+    }
+    $settings = get_option('aicp_model_providers', []);
+    $config   = $settings['openai'] ?? [];
+    $api_key  = isset($config['api_key']) ? AICP_Crypto_Helper::decrypt($config['api_key']) : '';
+    $model    = esc_attr($config['model'] ?? 'gpt-4o-mini');
+    $base_url = esc_url($config['base_url'] ?? '');
+    ?>
+    <p><label for="aicp_openai_api_key"><?php _e('API Key', 'ai-chatbot-pro'); ?></label><br>
+    <input type="password" name="aicp_model_providers[openai][api_key]" id="aicp_openai_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text" placeholder="sk-..." /></p>
+    <p><label for="aicp_openai_model"><?php _e('Modelo', 'ai-chatbot-pro'); ?></label><br>
+    <input type="text" name="aicp_model_providers[openai][model]" id="aicp_openai_model" value="<?php echo $model; ?>" class="regular-text" placeholder="gpt-4o" /></p>
+    <p><label for="aicp_openai_base_url"><?php _e('URL alternativa', 'ai-chatbot-pro'); ?></label><br>
+    <input type="url" name="aicp_model_providers[openai][base_url]" id="aicp_openai_base_url" value="<?php echo $base_url; ?>" class="regular-text" placeholder="https://tu-proxy/v1/chat/completions" /></p>
+    <?php
+}
+
+function aicp_provider_gemini_render() {
+    if (!class_exists('AICP_Crypto_Helper')) {
+        require_once AICP_PLUGIN_DIR . 'includes/class-crypto-helper.php';
+    }
+    $settings = get_option('aicp_model_providers', []);
+    $config   = $settings['gemini'] ?? [];
+    $api_key  = isset($config['api_key']) ? AICP_Crypto_Helper::decrypt($config['api_key']) : '';
+    $model    = esc_attr($config['model'] ?? '');
+    $endpoint = esc_url($config['endpoint'] ?? '');
+    ?>
+    <p><label for="aicp_gemini_api_key"><?php _e('API Key', 'ai-chatbot-pro'); ?></label><br>
+    <input type="password" name="aicp_model_providers[gemini][api_key]" id="aicp_gemini_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text" /></p>
+    <p><label for="aicp_gemini_model"><?php _e('Modelo', 'ai-chatbot-pro'); ?></label><br>
+    <input type="text" name="aicp_model_providers[gemini][model]" id="aicp_gemini_model" value="<?php echo $model; ?>" class="regular-text" placeholder="gemini-1.5-pro" /></p>
+    <p><label for="aicp_gemini_endpoint"><?php _e('Ruta de endpoint', 'ai-chatbot-pro'); ?></label><br>
+    <input type="url" name="aicp_model_providers[gemini][endpoint]" id="aicp_gemini_endpoint" value="<?php echo $endpoint; ?>" class="regular-text" placeholder="https://generativelanguage.googleapis.com/v1beta/" /></p>
+    <?php
+}
+
+function aicp_provider_custom_render() {
+    if (!class_exists('AICP_Crypto_Helper')) {
+        require_once AICP_PLUGIN_DIR . 'includes/class-crypto-helper.php';
+    }
+    $settings   = get_option('aicp_model_providers', []);
+    $config     = $settings['custom'] ?? [];
+    $api_key    = isset($config['api_key']) ? AICP_Crypto_Helper::decrypt($config['api_key']) : '';
+    $model      = esc_attr($config['model'] ?? '');
+    $endpoint   = esc_url($config['endpoint'] ?? '');
+    $temperature = esc_attr($config['temperature'] ?? '');
+    $max_tokens  = esc_attr($config['max_tokens'] ?? '');
+    ?>
+    <p><label for="aicp_custom_api_key"><?php _e('API Key', 'ai-chatbot-pro'); ?></label><br>
+    <input type="password" name="aicp_model_providers[custom][api_key]" id="aicp_custom_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text" /></p>
+    <p><label for="aicp_custom_endpoint"><?php _e('Endpoint', 'ai-chatbot-pro'); ?></label><br>
+    <input type="url" name="aicp_model_providers[custom][endpoint]" id="aicp_custom_endpoint" value="<?php echo $endpoint; ?>" class="regular-text" placeholder="https://mi-api.chat" /></p>
+    <p><label for="aicp_custom_model"><?php _e('Modelo', 'ai-chatbot-pro'); ?></label><br>
+    <input type="text" name="aicp_model_providers[custom][model]" id="aicp_custom_model" value="<?php echo $model; ?>" class="regular-text" /></p>
+    <p><label for="aicp_custom_temperature"><?php _e('Temperatura (opcional)', 'ai-chatbot-pro'); ?></label><br>
+    <input type="number" step="0.1" name="aicp_model_providers[custom][temperature]" id="aicp_custom_temperature" value="<?php echo $temperature; ?>" class="small-text" /></p>
+    <p><label for="aicp_custom_max_tokens"><?php _e('Máx. tokens (opcional)', 'ai-chatbot-pro'); ?></label><br>
+    <input type="number" name="aicp_model_providers[custom][max_tokens]" id="aicp_custom_max_tokens" value="<?php echo $max_tokens; ?>" class="small-text" /></p>
+    <?php
 }
 
 /**
@@ -76,37 +133,11 @@ function aicp_render_settings_page() {
     <?php
 }
 
-function aicp_templates_section_render() {
-    echo '<p>' . esc_html__('Edita las plantillas base que se utilizan al crear nuevos asistentes. Usa el formato JSON y asegúrate de mantener los identificadores únicos.', 'ai-chatbot-pro') . '</p>';
-}
-
-function aicp_template_editor_field_render() {
-    $stored_templates = get_option('aicp_assistant_templates');
-    if (!is_array($stored_templates) || empty($stored_templates)) {
-        if (function_exists('aicp_get_default_assistant_templates')) {
-            $stored_templates = aicp_get_default_assistant_templates();
-        } else {
-            $stored_templates = [];
-        }
-    }
-
-    $json = wp_json_encode($stored_templates, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    ?>
-    <textarea name="aicp_assistant_templates" rows="15" class="large-text code" spellcheck="false"><?php echo esc_textarea($json); ?></textarea>
-    <p class="description"><?php esc_html_e('Introduce un array de objetos con los campos id, label y system_prompt_template. Los datos se sanitizan automáticamente antes de guardarse.', 'ai-chatbot-pro'); ?></p>
-    <?php
-}
-
 /**
  * Sanitiza las opciones de ajustes generales.
  */
 function aicp_general_settings_sanitize($input) {
     $sanitized = [];
-
-    // Guarda los ajustes del plugin principal
-    if (isset($input['api_key'])) {
-        $sanitized['api_key'] = sanitize_text_field($input['api_key']);
-    }
 
     // Si el addon PRO está activo, le pasa los datos para que guarde los suyos.
     if (class_exists('AICP_Pro_Features')) {
@@ -116,37 +147,29 @@ function aicp_general_settings_sanitize($input) {
     return $sanitized;
 }
 
-function aicp_assistant_templates_sanitize($input) {
-    $raw = $input;
-
-    if (is_string($raw)) {
-        $raw = wp_unslash($raw);
-        $decoded = json_decode($raw, true);
-    } elseif (is_array($raw)) {
-        $decoded = $raw;
-    } else {
-        $decoded = [];
+function aicp_model_providers_sanitize($input) {
+    if (!class_exists('AICP_Crypto_Helper')) {
+        require_once AICP_PLUGIN_DIR . 'includes/class-crypto-helper.php';
     }
-
-    if (!is_array($decoded)) {
-        add_settings_error('aicp_assistant_templates', 'aicp_templates_invalid_json', __('El JSON proporcionado no es válido.', 'ai-chatbot-pro'));
-        return get_option('aicp_assistant_templates', []);
-    }
-
-    if (!function_exists('aicp_sanitize_assistant_templates_array')) {
-        require_once AICP_PLUGIN_DIR . 'includes/template-functions.php';
-    }
-
-    $sanitized = aicp_sanitize_assistant_templates_array($decoded);
-
-    if (empty($sanitized)) {
-        add_settings_error('aicp_assistant_templates', 'aicp_templates_empty', __('No se pudo guardar ninguna plantilla válida. Revisa el formato y los campos obligatorios.', 'ai-chatbot-pro'));
-        return get_option('aicp_assistant_templates', []);
-    }
-
-    if (function_exists('aicp_clear_assistant_templates_cache')) {
-        aicp_clear_assistant_templates_cache();
-    }
+    $sanitized = [
+        'openai' => [
+            'api_key' => isset($input['openai']['api_key']) ? AICP_Crypto_Helper::encrypt(sanitize_text_field($input['openai']['api_key'])) : '',
+            'model'   => isset($input['openai']['model']) ? sanitize_text_field($input['openai']['model']) : '',
+            'base_url'=> isset($input['openai']['base_url']) ? esc_url_raw($input['openai']['base_url']) : '',
+        ],
+        'gemini' => [
+            'api_key'  => isset($input['gemini']['api_key']) ? AICP_Crypto_Helper::encrypt(sanitize_text_field($input['gemini']['api_key'])) : '',
+            'model'    => isset($input['gemini']['model']) ? sanitize_text_field($input['gemini']['model']) : '',
+            'endpoint' => isset($input['gemini']['endpoint']) ? esc_url_raw($input['gemini']['endpoint']) : '',
+        ],
+        'custom' => [
+            'api_key'     => isset($input['custom']['api_key']) ? AICP_Crypto_Helper::encrypt(sanitize_text_field($input['custom']['api_key'])) : '',
+            'endpoint'    => isset($input['custom']['endpoint']) ? esc_url_raw($input['custom']['endpoint']) : '',
+            'model'       => isset($input['custom']['model']) ? sanitize_text_field($input['custom']['model']) : '',
+            'temperature' => isset($input['custom']['temperature']) ? floatval($input['custom']['temperature']) : '',
+            'max_tokens'  => isset($input['custom']['max_tokens']) ? intval($input['custom']['max_tokens']) : '',
+        ],
+    ];
 
     return $sanitized;
 }
