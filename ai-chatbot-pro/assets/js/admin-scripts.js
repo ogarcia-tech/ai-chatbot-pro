@@ -92,7 +92,33 @@ jQuery(function($) {
     });
 
     function handleTabs() {
-        $('.aicp-nav-tab-wrapper a').on('click', function(e) {
+        const $navTabs = $('.aicp-nav-tab-wrapper a');
+        const $panels = $('.aicp-tab-content');
+
+        function activateTab(target, skipHashUpdate = false) {
+            if (!target || !$panels.filter(target).length) {
+                return;
+            }
+
+            $navTabs.removeClass('nav-tab-active');
+            const $targetTab = $navTabs.filter(`[href="${target}"]`);
+            if ($targetTab.length) {
+                $targetTab.addClass('nav-tab-active');
+            }
+
+            $panels.removeClass('is-active').attr('aria-hidden', 'true');
+            $(target).addClass('is-active').attr('aria-hidden', 'false');
+
+            if (!skipHashUpdate) {
+                if (window.history && typeof window.history.replaceState === 'function') {
+                    window.history.replaceState(null, '', target);
+                } else {
+                    window.location.hash = target;
+                }
+            }
+        }
+
+        $navTabs.on('click', function(e) {
             const $tab = $(this);
             const isDisabled = $tab.attr('aria-disabled') === 'true' || $tab.data('tabDisabled') === 1;
             if (isDisabled) {
@@ -104,13 +130,23 @@ jQuery(function($) {
             }
 
             e.preventDefault();
-            $('.aicp-nav-tab-wrapper a').removeClass('nav-tab-active');
-            $tab.addClass('nav-tab-active');
-            $('.aicp-tab-content').hide();
-            const targetTab = $tab.attr('href');
-            $(targetTab).show();
+            activateTab($tab.attr('href'));
         });
-        $('.aicp-tab-content').not(':first').hide();
+
+        let initialTarget = '';
+        if (window.location.hash && $panels.filter(window.location.hash).length) {
+            initialTarget = window.location.hash;
+        } else if ($navTabs.length) {
+            initialTarget = $navTabs.first().attr('href') || '';
+        }
+
+        if (!initialTarget && $panels.length) {
+            initialTarget = `#${$panels.first().attr('id')}`;
+        }
+
+        if (initialTarget) {
+            activateTab(initialTarget, true);
+        }
     }
     
     function handleMediaUploader() {

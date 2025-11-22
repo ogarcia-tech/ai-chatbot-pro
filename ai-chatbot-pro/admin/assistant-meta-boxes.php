@@ -182,7 +182,7 @@ function aicp_render_main_meta_box($post) {
         $pro_tab_classes .= ' aicp-pro-tab--locked';
     }
     ?>
-    <div id="aicp-tab-instructions" class="aicp-tab-content">
+    <div id="aicp-tab-instructions" class="aicp-tab-content is-active">
         <?php aicp_render_instructions_tab($v); ?>
     </div>
     <div id="aicp-tab-design" class="aicp-tab-content">
@@ -367,6 +367,8 @@ function aicp_render_integrations_tab($assistant_id, $v) {
 }
 
 function aicp_render_leads_tab($assistant_id, $v) {
+    global $wpdb;
+
     $logs_table = $wpdb->prefix . 'aicp_chat_logs';
 
     echo '<p>' . __('El historial muestra las conversaciones y los datos estructurados capturados automáticamente. Los ajustes de leads se simplifican a los datos detectados dentro de cada conversación.', 'ai-chatbot-pro') . '</p>';
