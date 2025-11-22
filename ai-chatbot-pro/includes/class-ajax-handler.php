@@ -20,6 +20,7 @@ class AICP_Ajax_Handler {
         add_action('wp_ajax_aicp_delete_log', [__CLASS__, 'handle_delete_log']);
         add_action('wp_ajax_aicp_get_log_details', [__CLASS__, 'handle_get_log_details']);
         add_action('wp_ajax_aicp_test_webhook', [__CLASS__, 'handle_test_webhook']); // Para probar webhook desde admin
+        add_action('wp_ajax_aicp_test_model_connection', [__CLASS__, 'handle_test_model_connection']);
         add_action('wp_ajax_aicp_get_templates', [__CLASS__, 'handle_get_templates']); // Para cargar plantillas en admin
 
         // Hooks de feedback
@@ -389,6 +390,94 @@ class AICP_Ajax_Handler {
             if (isset($result['duration'])) $response['duration'] = floatval($result['duration']);
             wp_send_json_success($response);
         }
+    }
+
+
+    /**
+     * Maneja la prueba de conexión con proveedores de modelo desde la pantalla de ajustes.
+     */
+    public static function handle_test_model_connection() {
+        check_ajax_referer('aicp_test_model_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('No tienes permisos para realizar esta acción.', 'ai-chatbot-pro')]);
+        }
+
+        $provider = isset($_POST['provider']) ? sanitize_key(wp_unslash($_POST['provider'])) : '';
+        if ($provider === '') {
+            wp_send_json_error(['message' => __('Selecciona un proveedor para probar la conexión.', 'ai-chatbot-pro')]);
+        }
+
+        $settings = [
+            'api_key' => isset($_POST['api_key']) ? sanitize_text_field(wp_unslash($_POST['api_key'])) : '',
+            'model'   => isset($_POST['model']) ? sanitize_text_field(wp_unslash($_POST['model'])) : '',
+        ];
+
+        if (isset($_POST['base_url'])) {
+            $settings['base_url'] = esc_url_raw(wp_unslash($_POST['base_url']));
+        }
+        if (isset($_POST['endpoint'])) {
+            $settings['endpoint'] = esc_url_raw(wp_unslash($_POST['endpoint']));
+        }
+        if (isset($_POST['temperature']) && $_POST['temperature'] !== '') {
+            $settings['temperature'] = floatval(wp_unslash($_POST['temperature']));
+        }
+        if (isset($_POST['max_tokens']) && $_POST['max_tokens'] !== '') {
+            $settings['max_tokens'] = intval(wp_unslash($_POST['max_tokens']));
+        }
+
+        $missing_fields = false;
+        switch ($provider) {
+            case 'gemini':
+                $missing_fields = empty($settings['api_key']) || empty($settings['model']) || empty($settings['endpoint']);
+                break;
+            case 'custom':
+                $missing_fields = empty($settings['model']) || empty($settings['endpoint']);
+                break;
+            default:
+                $missing_fields = empty($settings['api_key']) || empty($settings['model']);
+                break;
+        }
+
+        if ($missing_fields) {
+            wp_send_json_error(['message' => __('Rellena todos los campos obligatorios antes de probar.', 'ai-chatbot-pro')]);
+        }
+
+        if (!class_exists('AICP_Model_Router')) {
+            require_once AICP_PLUGIN_DIR . 'includes/class-model-router.php';
+        }
+
+        $driver = AICP_Model_Router::get_driver($provider);
+        if (!$driver || !method_exists($driver, 'send_message')) {
+            wp_send_json_error(['message' => __('No se pudo inicializar el driver del modelo.', 'ai-chatbot-pro')]);
+        }
+
+        $prompt  = __('Prueba de conexión desde el panel de ajustes.', 'ai-chatbot-pro');
+        $history = [
+            ['role' => 'user', 'content' => __('Mensaje de verificación rápida para comprobar la API.', 'ai-chatbot-pro')],
+        ];
+
+        $response = $driver->send_message($prompt, $history, $settings);
+
+        if (is_wp_error($response)) {
+            $error_message = $response->get_error_message();
+            $error_code    = $response->get_error_code();
+            $payload       = ['message' => $error_message];
+            if (!empty($error_code)) {
+                $payload['code'] = $error_code;
+            }
+            wp_send_json_error($payload);
+        }
+
+        $preview = '';
+        if (is_string($response) && $response !== '') {
+            $preview = wp_strip_all_tags(wp_html_excerpt($response, 240, '…'));
+        }
+
+        wp_send_json_success([
+            'message' => __('Conexión verificada correctamente.', 'ai-chatbot-pro'),
+            'preview' => $preview,
+        ]);
     }
 
 
