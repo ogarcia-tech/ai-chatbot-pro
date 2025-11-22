@@ -4,7 +4,13 @@
 
 /* Pestañas */
 .aicp-nav-tab-wrapper { margin-bottom: -1px; }
-.aicp-tab-content { margin-top: 1em; }
+.aicp-tab-content {
+    margin-top: 1em;
+    display: none;
+}
+.aicp-tab-content.is-active {
+    display: block;
+}
 .aicp-pro-tag {
     display: inline-block; background-color: #ffba00; color: #000;
     font-size: 9px; font-weight: bold; padding: 2px 6px;
