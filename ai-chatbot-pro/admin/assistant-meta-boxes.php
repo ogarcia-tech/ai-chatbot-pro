@@ -10,31 +10,6 @@ if (!defined('ABSPATH')) exit;
  * Añade los meta boxes a la pantalla de edición de asistentes.
  */
 function aicp_add_meta_boxes() {
-    add_action('edit_form_top', function($post) {
-        if ($post->post_type !== 'aicp_assistant') return;
-
-        $settings = get_post_meta($post->ID, '_aicp_assistant_settings', true);
-        $settings = is_array($settings) ? $settings : [];
-        $forwarding_active = !empty($settings['forward_to_webhook']) && !empty($settings['forward_webhook_url']);
-
-        $disabled_class = $forwarding_active ? ' aicp-nav-tab--disabled' : '';
-        $disabled_attr  = $forwarding_active ? ' aria-disabled="true" data-tab-disabled="1"' : '';
-
-        echo '<h2 class="nav-tab-wrapper aicp-nav-tab-wrapper">';
-        echo '<a href="#aicp-tab-instructions" class="nav-tab nav-tab-active' . $disabled_class . '" data-lockable-tab="1"' . $disabled_attr . '>' . __('Instrucciones', 'ai-chatbot-pro') . '</a>';
-        echo '<a href="#aicp-tab-design" class="nav-tab">' . __('Diseño', 'ai-chatbot-pro') . '</a>';
-        echo '<a href="#aicp-tab-leads" class="nav-tab' . $disabled_class . '" data-lockable-tab="1"' . $disabled_attr . '>' . __('Leads', 'ai-chatbot-pro') . '</a>';
-        echo '<a href="#aicp-tab-integrations" class="nav-tab">' . __('Integraciones', 'ai-chatbot-pro') . '</a>';
-
-        // Lógica corregida para mostrar la pestaña PRO o el mensaje de venta.
-        if (class_exists('AICP_Pro_Features')) {
-            echo '<a href="#aicp-tab-pro" class="nav-tab' . $disabled_class . '" data-lockable-tab="1"' . $disabled_attr . '>' . __('Funciones PRO', 'ai-chatbot-pro') . ' <span class="aicp-pro-tag">PRO</span></a>';
-        } else {
-             echo '<a href="#aicp-tab-pro-upsell" class="nav-tab' . $disabled_class . '" data-lockable-tab="1"' . $disabled_attr . '>' . __('Funciones PRO', 'ai-chatbot-pro') . ' <span class="aicp-pro-tag">PRO</span></a>';
-        }
-        echo '</h2>';
-    });
-
     add_meta_box('aicp_main_settings_meta_box', __('Configuración del Asistente', 'ai-chatbot-pro'), 'aicp_render_main_meta_box', 'aicp_assistant', 'normal', 'high');
     add_meta_box('aicp_shortcode_meta_box', __('Shortcode', 'ai-chatbot-pro'), 'aicp_render_shortcode_meta_box', 'aicp_assistant', 'side', 'high');
 }
@@ -116,6 +91,7 @@ function aicp_admin_scripts($hook) {
         'default_user_avatar' => $default_user_avatar,
         'default_open_icon' => $default_open_icon,
         'templates_url' => add_query_arg('action', 'aicp_get_templates', admin_url('admin-ajax.php')),
+        'template_description_fallback' => __('Selecciona una plantilla para precargar un prompt de sistema.', 'ai-chatbot-pro'),
         'lead_fields' => AICP_Lead_Manager::get_lead_field_config($post_id, $settings),
         'initial_settings' => [
             'bot_avatar_url' => $settings['bot_avatar_url'] ?? $default_bot_avatar,
@@ -128,12 +104,9 @@ function aicp_admin_scripts($hook) {
             'color_user_bg' => $settings['color_user_bg'] ?? '#dcf8c6',
             'color_user_text' => $settings['color_user_text'] ?? '#000000',
             'provider' => $settings['provider'] ?? 'openai',
+            'model' => $settings['model'] ?? '',
             'master_prompt' => $settings['master_prompt'] ?? '',
             'template_id' => $settings['template_id'] ?? '',
-            'persona' => $settings['persona'] ?? '',
-            'objective' => $settings['objective'] ?? '',
-            'length_tone' => $settings['length_tone'] ?? '',
-            'example' => $settings['example'] ?? '',
             'quick_replies' => isset($settings['quick_replies']) && is_array($settings['quick_replies']) ? array_values($settings['quick_replies']) : [],
             'forward_to_webhook' => !empty($settings['forward_to_webhook']),
         ],
@@ -182,10 +155,13 @@ function aicp_render_main_meta_box($post) {
         $pro_tab_classes .= ' aicp-pro-tab--locked';
     }
     ?>
-    <div id="aicp-tab-instructions" class="aicp-tab-content">
+    <div class="aicp-section-block" id="aicp-tab-instructions">
+        <h3><?php _e('Instrucciones y modelo', 'ai-chatbot-pro'); ?></h3>
+        <p class="description"><?php _e('Configura un único prompt maestro, elige el proveedor y el modelo, o aplica una de las plantillas de sistema incluidas.', 'ai-chatbot-pro'); ?></p>
         <?php aicp_render_instructions_tab($v); ?>
     </div>
-    <div id="aicp-tab-design" class="aicp-tab-content">
+    <div class="aicp-section-block" id="aicp-tab-design">
+        <h3><?php _e('Diseño y apariencia', 'ai-chatbot-pro'); ?></h3>
         <div class="aicp-design-layout">
             <div class="aicp-design-settings">
                 <?php aicp_render_design_tab($v); ?>
@@ -195,16 +171,19 @@ function aicp_render_main_meta_box($post) {
             </div>
         </div>
     </div>
-    <div id="aicp-tab-leads" class="<?php echo esc_attr($leads_tab_classes); ?>" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
+    <div class="aicp-section-block <?php echo esc_attr($leads_tab_classes); ?>" id="aicp-tab-leads" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
+        <h3><?php _e('Leads y conversaciones', 'ai-chatbot-pro'); ?></h3>
         <?php aicp_render_leads_tab($post->ID, $v); ?>
     </div>
-    <div id="aicp-tab-integrations" class="aicp-tab-content">
+    <div class="aicp-section-block" id="aicp-tab-integrations">
+        <h3><?php _e('Integraciones', 'ai-chatbot-pro'); ?></h3>
         <?php aicp_render_integrations_tab($post->ID, $v); ?>
     </div>
 
     <?php // Lógica corregida y limpia para mostrar el contenido PRO o el mensaje de venta.
     if (class_exists('AICP_Pro_Features')) : ?>
-        <div id="aicp-tab-pro" class="<?php echo esc_attr($pro_tab_classes); ?>" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
+        <div class="aicp-section-block <?php echo esc_attr($pro_tab_classes); ?>" id="aicp-tab-pro" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
+            <h3><?php _e('Funciones PRO', 'ai-chatbot-pro'); ?></h3>
             <div class="notice notice-warning inline aicp-pro-lock-notice"<?php echo $forwarding_active ? '' : ' style="display:none;"'; ?>>
                 <p><?php _e('La integración con webhook está activa. Desactívala para volver a entrenar el asistente o modificar estas opciones PRO.', 'ai-chatbot-pro'); ?></p>
             </div>
@@ -213,7 +192,8 @@ function aicp_render_main_meta_box($post) {
             ?>
         </div>
     <?php else: ?>
-        <div id="aicp-tab-pro-upsell" class="<?php echo esc_attr($pro_tab_classes); ?>" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
+        <div class="aicp-section-block <?php echo esc_attr($pro_tab_classes); ?>" id="aicp-tab-pro-upsell" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
+            <h3><?php _e('Funciones PRO', 'ai-chatbot-pro'); ?></h3>
             <?php aicp_render_pro_upsell(); ?>
         </div>
     <?php endif; ?>
@@ -223,6 +203,7 @@ function aicp_render_main_meta_box($post) {
 function aicp_render_instructions_tab($v) {
     $prompt = $v['master_prompt'] ?? '';
     $is_forwarding_enabled = !empty($v['forward_to_webhook']);
+    $selected_model    = $v['model'] ?? '';
     ?>
     <div class="notice notice-warning inline aicp-instructions-lock-notice"<?php echo $is_forwarding_enabled ? '' : ' style="display:none;"'; ?>>
         <p><?php _e('La integración con webhook está activa. Desactívala para volver a entrenar el asistente o modificar estas opciones PRO.', 'ai-chatbot-pro'); ?></p>
@@ -231,12 +212,12 @@ function aicp_render_instructions_tab($v) {
         <table class="form-table">
 
         <tr>
-            <th><label for="aicp_template_id"><?php _e('Plantilla de Asistente', 'ai-chatbot-pro'); ?></label></th>
+            <th><label for="aicp_template_id"><?php _e('Plantilla de System Prompt', 'ai-chatbot-pro'); ?></label></th>
             <td>
                 <select name="aicp_settings[template_id]" id="aicp_template_id" class="regular-text">
                     <option value=""><?php _e('Personalizado', 'ai-chatbot-pro'); ?></option>
                 </select>
-                <p class="description"><?php _e('Selecciona una plantilla predefinida para autocompletar los campos.', 'ai-chatbot-pro'); ?></p>
+                <p id="aicp_template_description" class="description"><?php _e('Selecciona una de las 10 plantillas incluidas para rellenar el prompt maestro al instante.', 'ai-chatbot-pro'); ?></p>
             </td>
         </tr>
         <tr>
@@ -252,20 +233,11 @@ function aicp_render_instructions_tab($v) {
             </td>
         </tr>
         <tr>
-            <th><label for="aicp_persona"><?php _e('Nombre y Personalidad', 'ai-chatbot-pro'); ?></label></th>
-            <td><textarea name="aicp_settings[persona]" id="aicp_persona" rows="3" class="large-text"><?php echo esc_textarea($v['persona'] ?? ''); ?></textarea></td>
-        </tr>
-        <tr>
-            <th><label for="aicp_objective"><?php _e('Objetivo Principal', 'ai-chatbot-pro'); ?></label></th>
-            <td><textarea name="aicp_settings[objective]" id="aicp_objective" rows="2" class="large-text"><?php echo esc_textarea($v['objective'] ?? ''); ?></textarea></td>
-        </tr>
-        <tr>
-            <th><label for="aicp_length_tone"><?php _e('Longitud y Tono', 'ai-chatbot-pro'); ?></label></th>
-            <td><textarea name="aicp_settings[length_tone]" id="aicp_length_tone" rows="3" class="large-text"><?php echo esc_textarea($v['length_tone'] ?? ''); ?></textarea></td>
-        </tr>
-        <tr>
-            <th><label for="aicp_example"><?php _e('Ejemplo de Respuesta', 'ai-chatbot-pro'); ?></label></th>
-            <td><textarea name="aicp_settings[example]" id="aicp_example" rows="5" class="large-text"><?php echo esc_textarea($v['example'] ?? ''); ?></textarea></td>
+            <th><label for="aicp_model"><?php _e('Modelo', 'ai-chatbot-pro'); ?></label></th>
+            <td>
+                <input type="text" name="aicp_settings[model]" id="aicp_model" class="regular-text" value="<?php echo esc_attr($selected_model); ?>" placeholder="<?php esc_attr_e('Ej: gpt-4o-mini, gemini-1.5-pro, llama3', 'ai-chatbot-pro'); ?>">
+                <p class="description"><?php _e('Introduce el nombre exacto del modelo que quieres usar en este asistente.', 'ai-chatbot-pro'); ?></p>
+            </td>
         </tr>
         <tr>
             <th><label><?php _e('Respuestas Rápidas', 'ai-chatbot-pro'); ?></label></th>
@@ -279,9 +251,8 @@ function aicp_render_instructions_tab($v) {
         <tr>
             <th><label for="aicp_custom_prompt"><?php _e('Prompt maestro (unificado)', 'ai-chatbot-pro'); ?></label></th>
             <td>
-                <label><input type="checkbox" id="aicp_edit_prompt_toggle"> <?php _e('Editar manualmente el prompt generado por la plantilla', 'ai-chatbot-pro'); ?></label>
                 <textarea name="aicp_settings[master_prompt]" id="aicp_custom_prompt" rows="12" class="large-text" placeholder="<?php esc_attr_e('El prompt maestro combina la plantilla y tus ajustes personalizados.', 'ai-chatbot-pro'); ?>"><?php echo esc_textarea($prompt); ?></textarea>
-                <p class="description"><?php _e('El prompt se genera a partir de la plantilla seleccionada y estos campos. Activa la casilla si quieres editarlo manualmente.', 'ai-chatbot-pro'); ?></p>
+                <p class="description"><?php _e('Escribe o pega aquí el prompt maestro definitivo que usará el chatbot. Puedes partir de una plantilla y después personalizarlo libremente.', 'ai-chatbot-pro'); ?></p>
             </td>
         </tr>
         </table>
@@ -367,6 +338,8 @@ function aicp_render_integrations_tab($assistant_id, $v) {
 }
 
 function aicp_render_leads_tab($assistant_id, $v) {
+    global $wpdb;
+
     $logs_table = $wpdb->prefix . 'aicp_chat_logs';
 
     echo '<p>' . __('El historial muestra las conversaciones y los datos estructurados capturados automáticamente. Los ajustes de leads se simplifican a los datos detectados dentro de cada conversación.', 'ai-chatbot-pro') . '</p>';
@@ -497,12 +470,9 @@ function aicp_save_meta_box_data($post_id) {
     if (!$lock_sections) {
         // Instrucciones
         $current['provider'] = isset($s['provider']) ? sanitize_key($s['provider']) : 'openai';
+        $current['model'] = isset($s['model']) ? sanitize_text_field($s['model']) : '';
         $current['master_prompt'] = isset($s['master_prompt']) ? wp_kses_post(wp_unslash($s['master_prompt'])) : '';
         $current['template_id'] = isset($s['template_id']) ? sanitize_text_field($s['template_id']) : '';
-        $current['persona'] = isset($s['persona']) ? sanitize_textarea_field($s['persona']) : '';
-        $current['objective'] = isset($s['objective']) ? sanitize_textarea_field($s['objective']) : '';
-        $current['length_tone'] = isset($s['length_tone']) ? sanitize_textarea_field($s['length_tone']) : '';
-        $current['example'] = isset($s['example']) ? sanitize_textarea_field($s['example']) : '';
         if (isset($s['quick_replies']) && is_array($s['quick_replies'])) {
             $current['quick_replies'] = array_values(array_filter(array_map('sanitize_text_field', $s['quick_replies'])));
         } else {
