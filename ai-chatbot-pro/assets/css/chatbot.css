@@ -59,7 +59,15 @@
     object-fit: cover;
     background-color: white;
 }
-.aicp-message-bubble { padding: 8px 14px; border-radius: 18px; line-height: 1.45; word-wrap: break-word; position: relative; }
+.aicp-message-bubble {
+    padding: 8px 14px;
+    border-radius: 18px;
+    line-height: 1.45;
+    word-wrap: break-word;
+    position: relative;
+    max-height: 340px;
+    overflow-y: auto;
+}
 
 .aicp-chat-message.bot { align-self: flex-start; }
 .aicp-chat-message.bot .aicp-message-bubble { background: var(--aicp-color-bot-bg); color: var(--aicp-color-bot-text); border-bottom-left-radius: 4px; }
