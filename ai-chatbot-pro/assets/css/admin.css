@@ -2,33 +2,24 @@
  * Estilos para el panel de administración de AI Chatbot Pro
  */
 
-/* Pestañas */
-.aicp-nav-tab-wrapper { margin-bottom: -1px; }
+/* Contenedores apilados */
+.aicp-section-block {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+.aicp-section-block h3 { margin-top: 0; }
+.aicp-section-block .description { margin-top: 4px; margin-bottom: 12px; }
 .aicp-tab-content {
     margin-top: 1em;
-    display: none;
-}
-.aicp-tab-content.is-active {
     display: block;
 }
 .aicp-pro-tag {
     display: inline-block; background-color: #ffba00; color: #000;
     font-size: 9px; font-weight: bold; padding: 2px 6px;
     border-radius: 3px; margin-left: 5px; vertical-align: middle;
-}
-.aicp-nav-tab-wrapper .aicp-nav-tab--disabled {
-    color: #a0a5aa;
-    border-color: #dcdcde;
-    background: #f6f7f7;
-    cursor: not-allowed;
-}
-.aicp-nav-tab-wrapper .aicp-nav-tab--disabled:hover,
-.aicp-nav-tab-wrapper .aicp-nav-tab--disabled:focus {
-    color: #a0a5aa;
-    box-shadow: none;
-}
-.aicp-nav-tab-wrapper .aicp-nav-tab--disabled.nav-tab-active {
-    border-bottom-color: #dcdcde;
 }
 .aicp-pro-feature-wrapper { background-color: #fff; border: 1px solid #ddd; padding: 20px; text-align: center; }
 

@@ -6,7 +6,6 @@ jQuery(function($) {
     window.aicp_admin_params = window.aicp_admin_params || {};
     const leadFieldDefinitions = aicp_admin_params.lead_fields || {};
     const escapeHtml = (text) => $('<div/>').text(text == null ? '' : String(text)).html();
-    const navLockMessage = aicp_admin_params.webhook_lock_message || '';
 
     const formatPreformatted = (value) => {
         return `<pre class="aicp-webhook-code-block">${escapeHtml(value == null ? '' : String(value))}</pre>`;
@@ -63,24 +62,6 @@ jQuery(function($) {
         return `<table class="widefat fixed striped"><tbody>${rows.join('')}</tbody></table>`;
     };
 
-    function setNavTabsLock(locked) {
-        const $tabs = $('.aicp-nav-tab-wrapper [data-lockable-tab="1"]');
-        $tabs.each(function() {
-            const $tab = $(this);
-            if (locked) {
-                $tab.addClass('aicp-nav-tab--disabled')
-                    .attr('aria-disabled', 'true')
-                    .attr('data-tab-disabled', '1')
-                    .data('tabDisabled', 1);
-            } else {
-                $tab.removeClass('aicp-nav-tab--disabled')
-                    .removeAttr('aria-disabled')
-                    .removeAttr('data-tab-disabled')
-                    .removeData('tabDisabled');
-            }
-        });
-    }
-
     // Inicializar color pickers
     $('.aicp-color-picker').wpColorPicker({
         change: function(event, ui) {
@@ -91,64 +72,6 @@ jQuery(function($) {
         }
     });
 
-    function handleTabs() {
-        const $navTabs = $('.aicp-nav-tab-wrapper a');
-        const $panels = $('.aicp-tab-content');
-
-        function activateTab(target, skipHashUpdate = false) {
-            if (!target || !$panels.filter(target).length) {
-                return;
-            }
-
-            $navTabs.removeClass('nav-tab-active');
-            const $targetTab = $navTabs.filter(`[href="${target}"]`);
-            if ($targetTab.length) {
-                $targetTab.addClass('nav-tab-active');
-            }
-
-            $panels.removeClass('is-active').attr('aria-hidden', 'true');
-            $(target).addClass('is-active').attr('aria-hidden', 'false');
-
-            if (!skipHashUpdate) {
-                if (window.history && typeof window.history.replaceState === 'function') {
-                    window.history.replaceState(null, '', target);
-                } else {
-                    window.location.hash = target;
-                }
-            }
-        }
-
-        $navTabs.on('click', function(e) {
-            const $tab = $(this);
-            const isDisabled = $tab.attr('aria-disabled') === 'true' || $tab.data('tabDisabled') === 1;
-            if (isDisabled) {
-                e.preventDefault();
-                if (navLockMessage) {
-                    window.alert(navLockMessage);
-                }
-                return;
-            }
-
-            e.preventDefault();
-            activateTab($tab.attr('href'));
-        });
-
-        let initialTarget = '';
-        if (window.location.hash && $panels.filter(window.location.hash).length) {
-            initialTarget = window.location.hash;
-        } else if ($navTabs.length) {
-            initialTarget = $navTabs.first().attr('href') || '';
-        }
-
-        if (!initialTarget && $panels.length) {
-            initialTarget = `#${$panels.first().attr('id')}`;
-        }
-
-        if (initialTarget) {
-            activateTab(initialTarget, true);
-        }
-    }
-    
     function handleMediaUploader() {
         let mediaUploader;
         $(document).on('click', '.aicp-upload-button', function(e) {
@@ -585,20 +508,6 @@ jQuery(function($) {
         });
     }
 
-    function handleCustomPromptToggle() {
-        const $textarea = $('#aicp_custom_prompt');
-        const $toggle = $('#aicp_edit_prompt_toggle');
-        function refresh() {
-            if ($toggle.is(':checked')) {
-                $textarea.prop('readonly', false);
-            } else {
-                $textarea.prop('readonly', true);
-            }
-        }
-        $toggle.on('change', refresh);
-        refresh();
-    }
-
     function handleWebhookToggle() {
         const $toggle = $('#aicp_forward_to_webhook');
         if (!$toggle.length) return;
@@ -685,8 +594,6 @@ jQuery(function($) {
                 $notice.hide();
             }
 
-            setNavTabsLock(locked);
-
             $lockableElements.each(function() {
                 const $el = $(this);
                 if ($el.hasClass('aicp-lock-hidden')) return;
@@ -705,8 +612,6 @@ jQuery(function($) {
         const initialLocked = $toggle.is(':checked') || !!(aicp_admin_params.initial_settings && aicp_admin_params.initial_settings.forward_to_webhook);
         if (initialLocked) {
             setLockedState(true);
-        } else {
-            setNavTabsLock(false);
         }
     }
 
@@ -1186,105 +1091,78 @@ jQuery(function($) {
         $('#aicp_position').on('change', function() { $('#aicp-preview-chatbot-container').removeClass('position-br position-bl').addClass('position-' + $(this).val()); });
     }
 
-    function initTemplateSelector() {
+    
+function initTemplateSelector() {
         if (typeof loadAssistantTemplates !== 'function') return;
 
-        const promptFields = ['persona', 'objective', 'length_tone', 'example'];
-        const $quickReplies = $('input[name="aicp_settings[quick_replies][]"]');
         const $compiledPrompt = $('#aicp_custom_prompt');
         const $select = $('#aicp_template_id');
+        const $description = $('#aicp_template_description');
+        const $quickReplies = $('input[name="aicp_settings[quick_replies][]"]');
+        const meta = aicp_admin_params.meta || {};
         let templates = [];
 
-        // Función que recompila el prompt final basándose en los campos del formulario
-        const recompilePrompt = () => {
-            const settings = {
-                template_id: $select.val(),
-                persona: $('#aicp_persona').val(),
-                objective: $('#aicp_objective').val(),
-                length_tone: $('#aicp_length_tone').val(),
-                example: $('#aicp_example').val()
-            };
-
-            const template = templates.find(t => t.id === settings.template_id);
-            let prompt = '';
-
-            if (template) {
-                prompt = window.renderTemplate(template.system_prompt_template, aicp_admin_params.meta);
-
-                if (settings.persona) prompt += `\n\nPERSONALIDAD: ${settings.persona}`;
-                if (settings.objective) prompt += `\n\nOBJETIVO PRINCIPAL: ${settings.objective}`;
-                if (settings.length_tone) prompt += `\n\nTONO Y LONGITUD: ${settings.length_tone}`;
-                if (settings.example) prompt += `\n\nEJEMPLO DE RESPUESTA: ${settings.example}`;
+        const renderDescription = (template) => {
+            if ($description.length === 0) {
+                return;
             }
 
-            if (!prompt) {
-                prompt = 'Eres un asistente de IA.';
+            if (!template) {
+                $description.text(aicp_admin_params.template_description_fallback || '');
+                return;
             }
 
-            $compiledPrompt.val(prompt);
+            const pieces = [template.label];
+            if (template.description) {
+                pieces.push(template.description);
+            }
+
+            $description.text(pieces.join(' — '));
         };
 
-        // Función para rellenar los campos con los datos de una plantilla
-        const fillFormWithTemplate = (tmpl) => {
-            if (tmpl) {
-                // Mapeo explícito y directo de cada campo
-                $('#aicp_persona').val(tmpl.persona || '');
-                $('#aicp_objective').val(tmpl.objective || '');
-                $('#aicp_length_tone').val(tmpl.length_tone || '');
-                $('#aicp_example').val(tmpl.example || '');
+        const applyTemplate = (template, force = false) => {
+            renderDescription(template);
 
-                const qrData = tmpl.quick_replies || [];
-                $quickReplies.each(function(index) {
-                    $(this).val(qrData[index] || '');
-                });
-
-                $('#aicp_edit_prompt_toggle').prop('checked', false);
-            } else {
-                promptFields.forEach(field => $(`#aicp_${field}`).val(''));
-                $quickReplies.val('');
-                $('#aicp_edit_prompt_toggle').prop('checked', false);
+            if (!template || !template.system_prompt_template) {
+                return;
             }
-            recompilePrompt();
+
+            const rendered = window.renderTemplate(template.system_prompt_template, meta);
+
+            if (force || !$compiledPrompt.val().trim()) {
+                $compiledPrompt.val(rendered);
+            }
+
+            if (template.quick_replies && Array.isArray(template.quick_replies) && $quickReplies.length) {
+                $quickReplies.each(function(index) {
+                    if (force || !$(this).val()) {
+                        $(this).val(template.quick_replies[index] || '');
+                    }
+                });
+            }
         };
 
         window.loadAssistantTemplates(aicp_admin_params.templates_url).then((data) => {
-            templates = data;
+            templates = Array.isArray(data) ? data : [];
             templates.forEach(t => {
                 $select.append(`<option value="${t.id}">${t.label}</option>`);
             });
 
             const initialTemplateId = aicp_admin_params.initial_settings.template_id || '';
-            $select.val(initialTemplateId);
-            const initialTemplate = templates.find(t => t.id === initialTemplateId);
-            if (initialTemplate) {
-                fillFormWithTemplate(initialTemplate);
-                promptFields.forEach(field => $(`#aicp_${field}`).val(aicp_admin_params.initial_settings[field] || $(`#aicp_${field}`).val()));
-                $quickReplies.each(function(index) {
-                    $(this).val(aicp_admin_params.initial_settings.quick_replies[index] || $(this).val());
-                });
+            if (initialTemplateId) {
+                $select.val(initialTemplateId);
             }
-            recompilePrompt();
+
+            const initialTemplate = templates.find(t => t.id === initialTemplateId);
+            applyTemplate(initialTemplate, false);
 
             $select.on('change', function() {
                 const tmpl = templates.find(t => t.id === this.value);
-                fillFormWithTemplate(tmpl);
-            });
-
-            promptFields.forEach(field => {
-                $(`#aicp_${field}`).on('input', recompilePrompt);
-            });
-
-            $quickReplies.on('input', recompilePrompt);
-
-            $('#aicp_edit_prompt_toggle').on('change', function() {
-                if (this.checked) {
-                    recompilePrompt();
-                }
+                applyTemplate(tmpl, true);
             });
         });
     }
     if ($('body').hasClass('post-type-aicp_assistant')) {
-        handleTabs();
         handleMediaUploader();
         handleHistoryModal();
         handleDeleteLogFromModal();
@@ -1292,7 +1170,6 @@ jQuery(function($) {
         initLivePreview();
         handleDeleteLogFromList();
         initTemplateSelector();
-        handleCustomPromptToggle();
         handleWebhookTestButton();
         handleWebhookToggle();
         handleLeadsLock();
