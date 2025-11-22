@@ -179,7 +179,7 @@ function aicp_render_main_meta_box($post) {
     <div id="aicp-tab-instructions" class="aicp-tab-content">
         <?php aicp_render_instructions_tab($v); ?>
     </div>
-    <div id="aicp-tab-design" class="aicp-tab-content" style="display:none;">
+    <div id="aicp-tab-design" class="aicp-tab-content">
         <div class="aicp-design-layout">
             <div class="aicp-design-settings">
                 <?php aicp_render_design_tab($v); ?>
@@ -189,16 +189,16 @@ function aicp_render_main_meta_box($post) {
             </div>
         </div>
     </div>
-    <div id="aicp-tab-leads" class="<?php echo esc_attr($leads_tab_classes); ?>" style="display:none;" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
+    <div id="aicp-tab-leads" class="<?php echo esc_attr($leads_tab_classes); ?>" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
         <?php aicp_render_leads_tab($post->ID, $v); ?>
     </div>
-    <div id="aicp-tab-integrations" class="aicp-tab-content" style="display:none;">
+    <div id="aicp-tab-integrations" class="aicp-tab-content">
         <?php aicp_render_integrations_tab($post->ID, $v); ?>
     </div>
 
     <?php // Lógica corregida y limpia para mostrar el contenido PRO o el mensaje de venta.
     if (class_exists('AICP_Pro_Features')) : ?>
-        <div id="aicp-tab-pro" class="<?php echo esc_attr($pro_tab_classes); ?>" style="display:none;" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
+        <div id="aicp-tab-pro" class="<?php echo esc_attr($pro_tab_classes); ?>" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
             <div class="notice notice-warning inline aicp-pro-lock-notice"<?php echo $forwarding_active ? '' : ' style="display:none;"'; ?>>
                 <p><?php _e('La integración con webhook está activa. Desactívala para volver a entrenar el asistente o modificar estas opciones PRO.', 'ai-chatbot-pro'); ?></p>
             </div>
@@ -207,7 +207,7 @@ function aicp_render_main_meta_box($post) {
             ?>
         </div>
     <?php else: ?>
-        <div id="aicp-tab-pro-upsell" class="<?php echo esc_attr($pro_tab_classes); ?>" style="display:none;" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
+        <div id="aicp-tab-pro-upsell" class="<?php echo esc_attr($pro_tab_classes); ?>" data-forwarding-active="<?php echo $forwarding_active ? '1' : '0'; ?>">
             <?php aicp_render_pro_upsell(); ?>
         </div>
     <?php endif; ?>
